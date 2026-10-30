@@ -60,10 +60,6 @@
   city: Esbjerg
   note: Direkte import, online
 
-- name: Vin For Dig
-  url: https://www.vinfordig.dk
-  city: Brørup
-
 - name: Østerbro Vin & Spiritus
   url: https://osterbrovin.dk
   city: København Ø
