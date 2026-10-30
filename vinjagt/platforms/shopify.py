@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 from typing import Iterator
 
 from .. import extract as X
@@ -21,8 +22,38 @@ def _qty_from_variant(title: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
+COMMON_OFFER_COLLECTIONS = ["tilbud", "alle-tilbud", "sale", "udsalg", "vintilbud", "kampagne", "outlet"]
+
+
+def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
+    """Produkter i shoppens tilbudssamlinger (fx /collections/tilbud)."""
+    paths = [urlparse(u).path.rstrip("/") for u in retailer.get("offer_urls") or [] if "/collections/" in u]
+    if not paths and retailer.get("discover_offers", True):
+        paths = [f"/collections/{c}" for c in COMMON_OFFER_COLLECTIONS]
+    handles: set[str] = set()
+    found = []
+    for path in paths:
+        got = 0
+        for page in range(1, 11):
+            try:
+                data, _ = client.get_json(f"{base}{path}/products.json?limit=250&page={page}")
+            except Exception:  # noqa: BLE001
+                data = None
+            prods = (data or {}).get("products") or []
+            handles.update(p.get("handle") for p in prods if p.get("handle"))
+            got += len(prods)
+            if len(prods) < 250:
+                break
+        if got:
+            found.append(base + path)
+    info["offer_pages"] = found
+    return handles
+
+
+def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = None) -> Iterator[Product]:
     base = retailer["url"].rstrip("/")
+    info = info if info is not None else {}
+    in_offer = offer_handles(client, base, retailer, info)
     page, seen = 1, 0
     while seen < max_products:
         data, resp = client.get_json(f"{base}/products.json?limit=250&page={page}")
@@ -68,7 +99,7 @@ def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
                 qty_tiers=[t for t in tiers if price and t[1] <= price],
                 sku=v.get("sku"),
                 gtin=v.get("barcode") or None,
-                on_offer=bool(compare and price and compare > price),
+                on_offer=bool(compare and price and compare > price) or p.get("handle") in in_offer,
             )
         if len(data["products"]) < 250:
             break

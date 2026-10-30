@@ -63,6 +63,7 @@
 - name: Østerbro Vin & Spiritus
   url: https://osterbrovin.dk
   city: København Ø
+  offer_urls: [/collections/tilbud]
 
 - name: Holte Vinlager
   url: https://www.holtevinlager.dk

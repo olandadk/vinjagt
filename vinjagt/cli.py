@@ -52,6 +52,8 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
             bg = int(r.get("background_pages", cfg["background_pages"]))
             it = mod.scan(client, r, limit, db=db_for_pages, background=bg, info=info)
+        elif platform == "shopify":
+            it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         else:
             it = mod.scan(client, r, int(cfg["max_products_api"]))
         wines, n = [], 0
@@ -160,8 +162,16 @@ def cmd_offers(cfg, only=None):
             continue
         row = db.retailer(r["id"])
         plat = r.get("platform") or (row["platform"] if row else None)
-        if plat in ("shopify", "woocommerce"):
-            print(f"{r['name']}: {plat} – tilbud læses direkte fra shoppens API, ingen tilbudsside nødvendig")
+        if plat == "woocommerce":
+            print(f"{r['name']}: woocommerce – tilbud læses direkte fra shoppens API")
+            continue
+        if plat == "shopify":
+            from .platforms import shopify
+            info: dict = {}
+            n = len(shopify.offer_handles(client, r["url"].rstrip("/"), r, info))
+            print(f"{r['name']} (shopify): {n} varer i tilbudssamlinger + varer med førpris")
+            for p in info.get("offer_pages") or []:
+                print(f"   {p}")
             continue
         sm = generic.sitemap_urls(client, r["url"]) if plat == "generic" else []
         pages = list(r.get("offer_urls") or []) + generic.discover_offer_pages(

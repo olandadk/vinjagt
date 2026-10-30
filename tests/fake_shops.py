@@ -65,6 +65,9 @@ class Shopify(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
+        if u.path == "/collections/tilbud/products.json":
+            page = int(parse_qs(u.query).get("page", ["1"])[0])
+            return self._json({"products": [{"handle": "w2"}, {"handle": "w5"}] if page == 1 else []})
         if u.path == "/products.json":
             page = int(parse_qs(u.query).get("page", ["1"])[0])
             items = _shop_prices(1) if page == 1 else []

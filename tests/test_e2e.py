@@ -45,6 +45,8 @@ def test_end_to_end(tmp_path):
         offers = db.execute("SELECT offer_products, offer_pages FROM retailers WHERE id='shop-generisk'").fetchone()
         n_before = sum(1 for w in fake_shops._GENERIC if w["before"])
         assert offers[0] == n_before and "/tilbud" in offers[1], offers
+        assert db.execute("SELECT on_offer FROM wines WHERE url LIKE '%8701/products/w5'").fetchone()[0] == 1
+        assert "/collections/tilbud" in db.execute("SELECT offer_pages FROM retailers WHERE id='shop-shopify'").fetchone()[0]
         gin = db.execute("SELECT COUNT(*) FROM wines WHERE name LIKE '%Gin%'").fetchone()[0]
         assert gin == 0
 
