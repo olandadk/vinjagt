@@ -145,3 +145,7 @@ vinjagt/
 web/           HTML/CSS/JS til hjemmesiden (ingen build-trin, ingen afhængigheder)
 deploy/        install.sh til Raspberry Pi (systemd-timer og webserver)
 ```
+
+## Licens
+
+MIT – se [LICENSE](LICENSE).
