@@ -138,8 +138,9 @@ def cmd_ratings(cfg, db, force=False):
             open(stamp, "w").close()
 
 
-def cmd_status(db):
-    for r in db.retailers():
+def cmd_status(cfg, db):
+    ids = {r["id"] for r in C.retailers(cfg)}
+    for r in [x for x in db.retailers() if x["id"] in ids]:
         ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["last_scan"])) if r["last_scan"] else "-"
         print(f"{r['name']:26} {r['platform'] or '-':12} {r['last_status'] or '-':10} {r['wines'] or 0:5} vine "
               f"{r['offer_products'] or 0:5} tilbud  {ts}  {r['error'] or ''}")
@@ -229,7 +230,7 @@ def main(argv=None):
         except Exception as e:  # noqa: BLE001
             log.error("Udgivelse fejlede: %s", e)
     if a.command == "status":
-        cmd_status(db)
+        cmd_status(cfg, db)
     if a.command == "offers":
         cmd_offers(cfg, only)
 
