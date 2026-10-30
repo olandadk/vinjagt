@@ -200,6 +200,9 @@ def cmd_diagnose(cfg, db, only=None):
         for x in rows:
             label = {1: "produkt læst", 0: "ikke produkt"}.get(x["is_product"], "fejl")
             print(f"   {x['n']:5}  {x['status']:<20} {label}")
+        ex = db.c.execute("SELECT url FROM pages WHERE retailer_id=? AND is_product=0 LIMIT 2", (r["id"],)).fetchall()
+        for e in ex:
+            print(f"          eksempel (ikke produkt): {e['url']}")
         for st in ("ingen produktdata", "error"):
             ex = db.c.execute("SELECT url FROM pages WHERE retailer_id=? AND status=? LIMIT 2", (r["id"], st)).fetchall()
             for e in ex:
@@ -208,6 +211,22 @@ def cmd_diagnose(cfg, db, only=None):
                           "('ok','ingen produktdata','error','robots') LIMIT 2", (r["id"],)).fetchall()
         for e in ex:
             print(f"          eksempel (HTTP {e['status']}): {e['url']}")
+
+
+def cmd_debug_auto(cfg, db, only):
+    """Vælg selv sider fra databasen, der ikke gav produktdata, og vis hvad scanneren ser."""
+    for rid in only:
+        rows = db.c.execute("SELECT url FROM pages WHERE retailer_id=? AND (is_product=0 OR is_product IS NULL) "
+                            "ORDER BY (url LIKE '%/vin%' OR url LIKE '%wine%' OR url LIKE '%produkt%') DESC, RANDOM() LIMIT 2",
+                            (rid,)).fetchall()
+        if not rows:
+            print(f"{rid}: ingen sider uden produktdata i databasen")
+        for row in rows:
+            print(f"\n===== {rid}: {row['url']}")
+            try:
+                cmd_debug(cfg, row["url"])
+            except Exception as e:  # noqa: BLE001
+                print(f"fejl: {e}")
 
 
 def cmd_debug(cfg, url: str):
@@ -222,7 +241,7 @@ def cmd_debug(cfg, url: str):
     client = _client(cfg)
     print(f"robots.txt tillader: {client.allowed(url)}")
     r = client.get(url)
-    print(f"HTTP {r.status_code}  {r.headers.get('Content-Type')}  {len(r.content)} bytes")
+    print(f"HTTP {r.status_code}  Content-Type: {r.headers.get('Content-Type')!r}  {len(r.content)} bytes")
     if r.url != url:
         print(f"omdirigeret til: {r.url}")
     soup = BeautifulSoup(r.text, "html.parser")
@@ -306,7 +325,12 @@ def main(argv=None):
     if a.command == "diagnose":
         cmd_diagnose(cfg, db, only)
     if a.command == "debug":
-        cmd_debug(cfg, a.url)
+        if a.url:
+            cmd_debug(cfg, a.url)
+        elif only:
+            cmd_debug_auto(cfg, db, sorted(only))
+        else:
+            print("Brug: debug URL   eller   debug --only forhandler-id")
 
 
 if __name__ == "__main__":

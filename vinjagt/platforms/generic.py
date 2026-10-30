@@ -407,7 +407,7 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
             if db:
                 db.mark_page(u, retailer["id"], None, "error")
             continue
-        if r.status_code != 200 or "html" not in r.headers.get("Content-Type", "html"):
+        if r.status_code != 200 or "html" not in (r.headers.get("Content-Type") or "html").lower():
             if db:
                 db.mark_page(u, retailer["id"], None, str(r.status_code))
             continue
