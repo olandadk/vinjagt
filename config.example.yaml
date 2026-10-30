@@ -8,8 +8,8 @@ timeout: 25
 workers: 3                # antal webshops der scannes samtidig (Pi 3B: 2-4)
 respect_robots: true
 max_products_api: 6000    # Shopify/WooCommerce: maks. produkter pr. shop
-max_pages_generic: 350    # øvrige shops: maks. produktsider pr. kørsel – tilbudsprodukter hentes altid først
-background_pages: 100     # ... heraf højst så mange almindelige produkter (bruges som markedspris for de andre shops' tilbud)
+max_pages_generic: 700    # øvrige shops: maks. produktsider pr. kørsel – tilbudsprodukter hentes altid først
+background_pages: 400     # ... heraf højst så mange almindelige produkter (finder skjulte tilbud og giver markedspriser)
 redetect_days: 14
 
 data_dir: data            # database og log

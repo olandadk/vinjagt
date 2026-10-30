@@ -207,7 +207,7 @@ def parse_product_page(html: str, url: str, retailer_id: str) -> Product | None:
             if t:
                 parts.append(t)
                 size += len(t)
-                if size > 1500:
+                if size > 4000:
                     break
         window = " ".join(parts)
     before, kind = X.parse_before_price(window, price)

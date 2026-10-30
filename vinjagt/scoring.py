@@ -133,10 +133,16 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             d = (ref - p1) / ref if ref else 0
             if wgt * d > best_disc:
                 best_disc, best_ref, raw_disc = wgt * d, label, d
+        if p6 < p1 * 0.9:  # forhandlerens egen 1-flaskepris – svag reference (kan være sat højt)
+            d6 = (p1 - p6) / p1 * 0.3
+            if d6 > best_disc:
+                best_disc, best_ref, raw_disc = d6, "egen 1-flaskepris (køb 6)", (p1 - p6) / p1
         if market_6 and p6 < market_6:
             d6 = (market_6 - p6) / market_6 * 0.9
             if d6 > best_disc:
                 best_disc, best_ref, raw_disc = d6, "markedspris v. 6 fl.", (market_6 - p6) / market_6
+        if p6 < p1 * 0.9:
+            flags.append(f"6-flaskestilbud: spar {round((p1 - p6) / p1 * 100)} %")
         if others and p1 <= min(m["price_1"] for m in others):
             flags.append("billigst i DK")
 

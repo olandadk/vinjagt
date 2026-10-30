@@ -50,6 +50,8 @@ _QTY_PATTERNS = [
     (re.compile(_NUM + r"\s*(?:kr\.?)?\s*(?:pr\.?|/)\s*(?:stk|fl|flaske)\.?\s*(?:ved|v\.)\s*(?:køb\s+af\s+)?(?:min\.?\s*)?(\d{1,2})", re.I), "unit_rev"),
     # "Pris v. 6 stk. 89,95" / "Pris ved 6 fl: 89"
     (re.compile(r"pris\s+(?:ved|v\.)\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "unit"),
+    # "6+ flasker 109,00" / "6 fl.: 89,95" / "12 flasker á 79" -> pr. flaske eller total (afgøres af størrelsen)
+    (re.compile(r"(?<![\d,.])(\d{1,2})\s*\+?\s*(?:stk\.?|fl\.?|flasker|flaske)\s*[:\-–]?\s*(?:á|a|à|kun)?\s*(?:kr\.?\s*)?" + _NUM, re.I), "auto"),
     # "Kassepris (6 fl.) 499" -> total
     (re.compile(r"kassepris\s*\(?\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*\)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "total"),
 ]
@@ -68,10 +70,15 @@ def parse_quantity_prices(text: str, unit_price: float | None = None) -> list[tu
                 qty, price = int(m.group(1)), _p(m.group(2))
             if not price or qty < 2 or qty > 24:
                 continue
-            per = price / qty if kind == "total" else price
+            if kind == "auto":
+                if not unit_price:
+                    continue
+                per = price if price <= unit_price * 1.0001 else price / qty
+            else:
+                per = price / qty if kind == "total" else price
             if unit_price:
-                # en mængdepris skal ligge mellem 40 % og 100 % af stykprisen
-                if not (0.4 * unit_price <= per <= unit_price * 1.0001):
+                # en mængdepris skal ligge mellem 25 % og 100 % af stykprisen
+                if not (0.25 * unit_price <= per <= unit_price * 1.0001):
                     continue
             found.append((qty, round(per, 2)))
     # dedup – laveste pris pr. antal

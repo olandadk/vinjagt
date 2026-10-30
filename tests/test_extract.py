@@ -83,3 +83,11 @@ def test_offer_ranking():
     assert _rank_offer("https://x.dk/oevrige-vine/varekort/brugnon", "Tilbud") == 0
     assert _rank_offer("https://x.dk/handelsbetingelser", "Tilbud") == 0
     assert _rank_offer("https://x.dk/alle-tilbud", "Alle tilbud") >= 3
+
+
+def test_philipson_case_price():
+    t = "Stk. pris ved køb af 6+ fl. 1 flaske 324,95 6+ flasker 109,00 324,95 Spar 215,95 DKK pr. fl."
+    assert X.parse_quantity_prices(t, 324.95) == [(6, 109.0)]
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "2021 Brunello di Montalcino Cordella", 324.95, description=t))
+    assert w.price_6 == 109.0 and w.on_offer

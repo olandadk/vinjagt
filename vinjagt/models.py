@@ -88,5 +88,5 @@ def normalize(p: Product) -> Wine | None:
         before_price=round(before * factor, 2) if before and before > unit else None,
         before_kind=before_kind if before and before > unit else None,
         critic=critic, image=p.image, gtin=p.gtin,
-        on_offer=bool(p.on_offer or (before and before > unit)),
+        on_offer=bool(p.on_offer or (before and before > unit) or price_6 <= price_1 * 0.9),
     )
