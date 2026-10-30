@@ -1,0 +1,42 @@
+# Kopiér til config.yaml og tilpas.   cp config.example.yaml config.yaml
+
+# Identificér dig over for webshoppene – skriv en rigtig kontakt-e-mail.
+user_agent: "VinjagtBot/1.0 (+privat prissammenligning; kontakt: din@mail.dk)"
+
+request_delay: 2.0        # sekunder mellem kald til samme webshop (robots.txt Crawl-delay respekteres også)
+timeout: 25
+workers: 3                # antal webshops der scannes samtidig (Pi 3B: 2-4)
+respect_robots: true
+max_products_api: 6000    # Shopify/WooCommerce: maks. produkter pr. shop
+max_pages_generic: 350    # øvrige shops: maks. produktsider pr. kørsel (resten tages næste gang)
+redetect_days: 14
+
+data_dir: data            # database og log
+site_dir: site            # den byggede hjemmeside
+
+scoring:
+  min_discount: 0.10      # mindst 10 % under en troværdig referencepris for at tælle som tilbud
+  min_value_points: 3.0   # ... eller mindst 3 point bedre end vine til samme pris (og ≥ 88 point)
+  min_vivino_ratings: 25  # Vivino-vurderinger med færre stemmer ignoreres
+
+ratings:
+  csv_dir: ratings        # egne kilder som CSV (se ratings/README.md)
+  vivino:
+    enabled: false        # se README – Vivino har ingen officiel API; slå kun til efter eget valg
+    pages_per_band: 4
+    every_days: 7
+
+site:
+  title: Vinjagt
+  subtitle: Gode vintilbud hos danske webshops
+  max_deals: 4000
+
+publish:
+  enabled: false
+  # Et hvilket som helst git-remote, Pi'en kan pushe til (SSH-nøgle anbefales):
+  #   GitHub:   git@github.com:BRUGER/vinjagt.git      -> Pages fra grenen 'pages'
+  #   Codeberg: git@codeberg.org:BRUGER/vinjagt.git    -> Codeberg Pages bruger grenen 'pages' automatisk
+  #   GitLab:   git@gitlab.com:BRUGER/vinjagt.git      -> .gitlab-ci.yml lægges automatisk i grenen
+  remote: ""
+  branch: pages
+  cname: ""               # eget domæne, fx vin.olanda.dk (valgfrit)

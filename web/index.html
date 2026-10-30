@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vinjagt – gode vintilbud hos danske webshops</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍷</text></svg>">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="title">Vinjagt<span id="subtitle"></span></h1>
+  <nav><a href="index.html" class="on">Tilbud</a><a href="forhandlere.html">Forhandlere</a><a href="metode.html">Sådan vurderes</a></nav>
+</div></header>
+<main class="wrap">
+  <p class="meta" id="meta">Indlæser …</p>
+  <section class="filters" aria-label="Filtre">
+    <label class="f-search">Søg<input id="q" type="search" placeholder="Navn, producent, drue, område …"></label>
+    <label class="f-sort">Sortér efter
+      <select id="sort">
+        <option value="s">Bedste tilbud (samlet score)</option>
+        <option value="d">Største rabat</option>
+        <option value="p">Laveste pris</option>
+        <option value="-p">Højeste pris</option>
+        <option value="q">Højeste kvalitet</option>
+        <option value="v">Bedste værdi for pengene</option>
+        <option value="n">Navn A–Å</option>
+        <option value="fs">Nyeste fund</option>
+      </select></label>
+    <label class="f-country">Land<select id="country"><option value="">Alle lande</option></select></label>
+    <label class="f-shop">Forhandler<select id="shop"><option value="">Alle forhandlere</option></select></label>
+    <label class="f-max">Maks. kr.<input id="max" type="number" min="0" step="10" placeholder="–"></label>
+    <div class="chips" id="types"></div>
+    <div class="chips">
+      <span style="font-size:12px;color:var(--muted)">Pris pr. flaske ved køb af</span>
+      <span class="seg" id="basis"><button data-v="1" class="on">1 flaske</button><button data-v="6">6 flasker</button></span>
+      <span class="sep"></span>
+      <button class="chip" id="rated">Kun med kvalitetsvurdering</button>
+      <button class="chip" id="cheapest">Kun billigst i DK</button>
+      <button class="chip" id="multi">Kun vine solgt af flere</button>
+    </div>
+  </section>
+  <p class="count" id="count"></p>
+  <div class="list" id="list"></div>
+  <button class="more" id="more" hidden>Vis flere</button>
+</main>
+<footer>Priserne hentes automatisk og kan være forældede eller fejlfortolket – tjek altid prisen hos forhandleren. Vinjagt har ingen tilknytning til forhandlerne.</footer>
+<script src="assets/common.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

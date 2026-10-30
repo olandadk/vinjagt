@@ -1,0 +1,116 @@
+# Danske vinforhandlere med webshop, der scannes.
+#
+# Felter:
+#   name                 (påkrævet) navn som vist på siden
+#   url                  (påkrævet) webshoppens forside
+#   platform             auto | shopify | woocommerce | generic   (auto = find selv, standard)
+#   city                 by / område (vises i oversigten)
+#   note                 kort beskrivelse
+#   offer_urls           sider med tilbud – produkter linket herfra hentes først (kun 'generic')
+#   product_url_pattern  regex der matcher produkt-URL'er i sitemap (kun 'generic', valgfri)
+#   max_pages            maks. produktsider pr. kørsel (kun 'generic', overskriver config)
+#   enabled              false = spring over
+#
+# Platformen findes automatisk ved første kørsel (python -m vinjagt detect).
+# Forhandlere der ikke kan scannes vises med status i oversigten på hjemmesiden.
+
+- name: Supervin
+  url: https://www.supervin.dk
+  city: Hjørring / Aalborg
+  note: Stor online vinhandel, butikker i Hjørring og Aalborg
+
+- name: Philipson Wine
+  url: https://www.philipsonwine.com
+  city: København
+  note: Stor online kvalitetsvinhandel
+
+- name: Kjær & Sommerfeldt
+  url: https://www.kjaersommerfeldt.dk
+  city: Landsdækkende
+  note: Danmarks ældste vinhandel (1875), kgl. hofleverandør
+
+- name: Skjold Burne
+  url: https://www.skjold-burne.dk
+  city: Landsdækkende
+  note: Kæde med webshop og ca. 22 butikker
+
+- name: H.J. Hansen Vin
+  url: https://www.hjhansen-vin.dk
+  city: Odense m.fl.
+  note: Samarbejder med Vinspecialisten
+
+- name: Vinspecialisten
+  url: https://www.vinspecialisten.dk
+  city: Landsdækkende
+  note: Kæde af specialbutikker
+
+- name: Laudrup Vin
+  url: https://www.laudrup.dk
+  city: Skovlunde
+  note: Importør og webshop, grundlagt 1993
+
+- name: Bichel Vine
+  url: https://www.bichel.dk
+  city: Hjortshøj m.fl.
+
+- name: VildMedVin
+  url: https://www.vildmedvin.dk
+  city: Landsdækkende
+  note: Webshop og butikker
+
+- name: AndrupVin
+  url: https://www.andrupvin.dk
+  city: Esbjerg
+  note: Direkte import, online
+
+- name: Vin For Dig
+  url: https://www.vinfordig.dk
+  city: Brørup
+
+- name: Østerbro Vin & Spiritus
+  url: https://osterbrovin.dk
+  city: København Ø
+
+- name: Holte Vinlager
+  url: https://www.holtevinlager.dk
+  city: Holte
+
+- name: Vin & Vin
+  url: https://www.vinogvin.dk
+  city: Landsdækkende
+  note: Kæde med 10+ butikker
+
+- name: FineWines
+  url: https://www.finewines.dk
+  note: Fokus på fine vine
+
+- name: Vinens Verden
+  url: https://www.vinensverden.dk
+  note: Importør siden 1994
+
+- name: Juul's Vin & Spiritus
+  url: https://www.juuls.dk
+  city: København
+
+- name: HvadDrikkerManTil
+  url: https://hvaddrikkermantil.dk
+  note: Små, økologiske producenter
+
+- name: Atomwine
+  url: https://atomwine.dk
+
+- name: Untamed Wine
+  url: https://untamedwine.org
+  city: København
+  note: Naturvin
+
+- name: BonBon Vin
+  url: https://bonbonvin.dk
+  note: Naturvin
+
+- name: HaugaardVin
+  url: https://www.haugaardvin.dk
+
+- name: Bisgaard Vinhandel
+  url: https://www.bisgaard-vin.dk
+  city: Støvring

@@ -1,0 +1,7 @@
+config.yaml
+data/
+site/
+__pycache__/
+*.pyc
+.venv/
+ratings/*.csv
