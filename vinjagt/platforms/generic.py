@@ -66,7 +66,21 @@ def sitemap_urls(client, base: str, limit_children: int = 40) -> list[str]:
 
 
 def detect(client, base: str) -> bool:
-    return bool(sitemap_urls(client, base, limit_children=2))
+    """Generisk virker altid, hvis forsiden svarer – med sitemap, eller kun via tilbudssiderne."""
+    if sitemap_urls(client, base, limit_children=2):
+        return True
+    try:
+        r = client.get(base + "/")
+        return r.status_code == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def url_key(u: str) -> str:
+    """Normaliseret URL til sammenligning (uden www, skema, afsluttende / og fragment)."""
+    p = urlparse(u)
+    q = ("?" + p.query) if p.query else ""
+    return (p.netloc.lower().replace("www.", "") + p.path.rstrip("/") + q).lower()
 
 
 # ------------------------------------------------------------ produktside
@@ -344,21 +358,33 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     urls = [u for u in all_urls if (include.search(u) if include else not EXCLUDE.search(urlparse(u).path))]
     urls = [u for u in urls if urlparse(u).path not in ("", "/") and
             (not OFFER_RX.search(urlparse(u).path) or PRODUCT_LIKE.search(urlparse(u).path))]
-    known = set(urls)
+    known = {url_key(u): u for u in urls}
+    nav: set[str] = set()
+    if not known and not include:
+        # Intet sitemap: links der også står på forsiden (menu, footer) er ikke produkter
+        try:
+            nav = {url_key(u) for u, _ in _soup_links(client.get_text(base + "/") or "", base + "/", host)}
+        except Exception:  # noqa: BLE001
+            nav = set()
 
     def is_product(u: str) -> bool:
+        path = urlparse(u).path
         if include:
             return bool(include.search(u))
         if known:
-            return u in known
-        return not EXCLUDE.search(urlparse(u).path) and not OFFER_RX.search(urlparse(u).path) and urlparse(u).path.count("/") >= 1
+            return url_key(u) in known
+        return (url_key(u) not in nav and path not in ("", "/") and not EXCLUDE.search(path)
+                and not OFFER_RX.search(path) and not PAGINATION_RX.search(u)
+                and not re.search(r"\.(jpe?g|png|webp|gif|pdf|svg)$", path, re.I))
 
     offer_pages = [urljoin(base + "/", o) for o in retailer.get("offer_urls") or []]
     if not offer_pages or retailer.get("discover_offers", True):
         offer_pages += discover_offer_pages(client, base, host, sitemap_urls_=all_urls)
     offer_pages = list(dict.fromkeys(offer_pages))
     offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []
-    info.update(offer_pages=offer_pages, offer_products=len(offer_products))
+    if known:  # brug sitemap-udgaven af URL'en, så sidestatus matcher
+        offer_products = list(dict.fromkeys(known.get(url_key(u), u) for u in offer_products))
+    info.update(offer_pages=offer_pages, offer_links=len(offer_products))
     log.info("%s: %d tilbudssider, %d tilbudsprodukter, %d produkt-URL'er i sitemap",
              retailer["id"], len(offer_pages), len(offer_products), len(urls))
 
@@ -387,7 +413,7 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
             continue
         p = parse_product_page(r.text, r.url or u, retailer["id"])
         if db:
-            db.mark_page(u, retailer["id"], p is not None, "ok")
+            db.mark_page(u, retailer["id"], p is not None, "ok" if p else "ingen produktdata")
         if p:
             p.on_offer = bool(p.before_price) or (u in offer_set and (not weak or X.has_offer_tag(p.categories)))
             yield p

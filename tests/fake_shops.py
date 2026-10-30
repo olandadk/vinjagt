@@ -167,12 +167,22 @@ class Generic(BaseHTTPRequestHandler):
         self.send_response(200); self.send_header("Content-Type", ct + "; charset=utf-8"); self.end_headers(); self.wfile.write(b)
 
 
+class NoSitemap(Generic):
+    """Som Generic, men uden sitemap – kun forside med menu og en tilbudsside."""
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        if u.path in ("/robots.txt", "/sitemap.xml"):
+            self.send_response(404); self.end_headers(); return
+        return super().do_GET()
+
+
 _GENERIC = _shop_prices(3)
 
 
 def start():
     servers = []
-    for port, h in ((8701, Shopify), (8702, Woo), (8703, Generic)):
+    for port, h in ((8701, Shopify), (8702, Woo), (8703, Generic), (8704, NoSitemap)):
         s = ThreadingHTTPServer(("127.0.0.1", port), h)
         threading.Thread(target=s.serve_forever, daemon=True).start()
         servers.append(s)

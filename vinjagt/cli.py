@@ -9,6 +9,8 @@
   serve      vis siden lokalt på http://<pi>:8080
   status     vis status for hver forhandler
   offers     vis hvilke tilbudssider der findes hos hver forhandler
+  diagnose   vis hvorfor produktsider ikke giver vine (pr. forhandler)
+  debug URL  hent én side og vis hvad scanneren ser
 """
 from __future__ import annotations
 
@@ -60,7 +62,7 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             w = normalize(p)
             if w:
                 wines.append(w)
-        info["offer_products"] = info.get("offer_products") or sum(1 for w in wines if w.on_offer)
+        info["offer_products"] = sum(1 for w in wines if w.on_offer)
         return r, platform, wines, n, None, time.time() - t0, info
     except Exception as e:  # noqa: BLE001
         log.exception("%s fejlede", r["id"])
@@ -185,6 +187,73 @@ def cmd_offers(cfg, only=None):
             print(f"   {p}")
 
 
+def cmd_diagnose(cfg, db, only=None):
+    """Hvorfor giver produktsider ingen vine? Optælling pr. forhandler + eksempler."""
+    for r in C.retailers(cfg):
+        if only and r["id"] not in only:
+            continue
+        rows = db.c.execute("SELECT status, is_product, COUNT(*) n FROM pages WHERE retailer_id=? "
+                            "GROUP BY status, is_product ORDER BY n DESC", (r["id"],)).fetchall()
+        if not rows:
+            continue
+        print(f"\n{r['name']}:")
+        for x in rows:
+            label = {1: "produkt læst", 0: "ikke produkt"}.get(x["is_product"], "fejl")
+            print(f"   {x['n']:5}  {x['status']:<20} {label}")
+        for st in ("ingen produktdata", "error"):
+            ex = db.c.execute("SELECT url FROM pages WHERE retailer_id=? AND status=? LIMIT 2", (r["id"], st)).fetchall()
+            for e in ex:
+                print(f"          eksempel ({st}): {e['url']}")
+        ex = db.c.execute("SELECT url, status FROM pages WHERE retailer_id=? AND status NOT IN "
+                          "('ok','ingen produktdata','error','robots') LIMIT 2", (r["id"],)).fetchall()
+        for e in ex:
+            print(f"          eksempel (HTTP {e['status']}): {e['url']}")
+
+
+def cmd_debug(cfg, url: str):
+    """Hent én side og vis hvad scanneren ser."""
+    import json as _json
+    import re as _re
+
+    from bs4 import BeautifulSoup
+
+    from .models import normalize
+    from .platforms import generic
+    client = _client(cfg)
+    print(f"robots.txt tillader: {client.allowed(url)}")
+    r = client.get(url)
+    print(f"HTTP {r.status_code}  {r.headers.get('Content-Type')}  {len(r.content)} bytes")
+    if r.url != url:
+        print(f"omdirigeret til: {r.url}")
+    soup = BeautifulSoup(r.text, "html.parser")
+    print(f"<title>: {soup.title.get_text(strip=True)[:100] if soup.title else '-'}")
+    h1 = soup.find("h1")
+    print(f"<h1>: {h1.get_text(' ', strip=True)[:100] if h1 else '-'}")
+    blocks = soup.find_all("script", type=_re.compile("ld\\+json", _re.I))
+    print(f"JSON-LD blokke: {len(blocks)}")
+    for b in blocks[:6]:
+        raw = (b.string or b.get_text() or "").strip()
+        try:
+            data = _json.loads(raw)
+            types = sorted({str(n.get('@type')) for n in generic._walk(data) if isinstance(n, dict) and n.get('@type')})
+            print(f"   typer: {', '.join(types)[:150]}")
+        except ValueError as e:
+            print(f"   ugyldig JSON ({e}): {raw[:120]!r}")
+    for sel in ('meta[property="product:price:amount"]', '[itemprop="price"]', 'meta[property="og:price:amount"]'):
+        el = soup.select_one(sel)
+        if el:
+            print(f"{sel}: {el.get('content') or el.get_text(strip=True)[:40]}")
+    if _re.search(r"(18 år|alder|age verif|verify.*age)", r.text[:20000], _re.I):
+        print("NB: siden nævner aldersbekræftelse")
+    p = generic.parse_product_page(r.text, r.url, "debug")
+    print(f"\nResultat: {p.name if p else 'INGEN PRODUKT FUNDET'}")
+    if p:
+        print(f"   pris {p.price}  førpris {p.before_price} ({p.before_kind})  mængdepriser {p.qty_tiers}")
+        print(f"   kategorier {p.categories[:5]}  producent {p.producer}")
+        w = normalize(p)
+        print(f"   som vin: {'nej (ikke vin / ingen pris)' if not w else f'{w.wine_type}, {w.country}, {w.vintage}, 1 fl. {w.price_1} / 6 fl. {w.price_6}'}")
+
+
 def cmd_serve(cfg, port: int):
     import functools
     import http.server
@@ -195,7 +264,8 @@ def cmd_serve(cfg, port: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="vinjagt", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers"])
+    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers", "diagnose", "debug"])
+    ap.add_argument("url", nargs="?", help="URL til 'debug'")
     ap.add_argument("--only", help="kommasepareret liste af forhandler-id'er")
     ap.add_argument("--config")
     ap.add_argument("--port", type=int, default=8080)
@@ -233,6 +303,10 @@ def main(argv=None):
         cmd_status(cfg, db)
     if a.command == "offers":
         cmd_offers(cfg, only)
+    if a.command == "diagnose":
+        cmd_diagnose(cfg, db, only)
+    if a.command == "debug":
+        cmd_debug(cfg, a.url)
 
 
 if __name__ == "__main__":
