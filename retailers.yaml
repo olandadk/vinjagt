@@ -38,15 +38,11 @@
   offer_urls: [/]           # tilbuddene står på forsiden
   discover_offers: false
 
-- name: Vinspecialisten
-  url: https://www.vinspecialisten.dk
-  city: Landsdækkende
-  note: Kæde af specialbutikker
-
 - name: Laudrup Vin
-  url: https://www.laudrup.dk
+  url: https://laudrup.dk
   city: Skovlunde
   note: Importør og webshop, grundlagt 1993
+  offer_urls: [/collections/tilbud]
 
 - name: Bichel Vine
   url: https://www.bichel.dk
@@ -82,8 +78,9 @@
   note: Fokus på fine vine
 
 - name: Vinens Verden
-  url: https://www.vinensverden.dk
+  url: https://www.wine.dk
   note: Importør siden 1994
+  offer_urls: ["/vine?o=1"]
 
 - name: Juul's Vin & Spiritus
   url: https://www.juuls.dk
@@ -111,7 +108,3 @@
   url: https://www.johnsenwine.dk
   note: Tidligere HaugaardVin
   offer_urls: [/produkt-kategori/aktuelle-tilbud/]
-
-- name: Bisgaard Vinhandel
-  url: https://www.bisgaard-vin.dk
-  city: Støvring
