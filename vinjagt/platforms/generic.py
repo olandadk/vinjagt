@@ -363,6 +363,8 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
              retailer["id"], len(offer_pages), len(offer_products), len(urls))
 
     offer_set = set(offer_products)
+    # Er forsiden selv "tilbudssiden", står der også almindelige varer – kræv da en førpris
+    weak = all(urlparse(p).path in ("", "/") for p in offer_pages) if offer_pages else False
     rest = db.page_order(retailer["id"], [], [u for u in urls if u not in offer_set]) if db else [u for u in urls if u not in offer_set]
     bg = max_products if background is None else min(background, max_products)
     order = offer_products[:max_products] + rest[:max(0, min(bg, max_products - len(offer_products)))]
@@ -386,5 +388,5 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
         if db:
             db.mark_page(u, retailer["id"], p is not None, "ok")
         if p:
-            p.on_offer = u in offer_set or bool(p.before_price)
+            p.on_offer = bool(p.before_price) or (u in offer_set and not weak)
             yield p

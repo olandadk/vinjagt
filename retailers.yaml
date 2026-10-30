@@ -29,15 +29,12 @@
   city: Landsdækkende
   note: Danmarks ældste vinhandel (1875), kgl. hofleverandør
 
-- name: Skjold Burne
-  url: https://www.skjold-burne.dk
-  city: Landsdækkende
-  note: Kæde med webshop og ca. 22 butikker
-
 - name: H.J. Hansen Vin
   url: https://www.hjhansen-vin.dk
   city: Odense m.fl.
   note: Samarbejder med Vinspecialisten
+  offer_urls: [/]           # tilbuddene står på forsiden
+  discover_offers: false
 
 - name: Vinspecialisten
   url: https://www.vinspecialisten.dk
