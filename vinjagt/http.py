@@ -18,7 +18,7 @@ class Blocked(Exception):
 
 
 class PoliteClient:
-    def __init__(self, user_agent: str, delay: float = 1.5, timeout: float = 25, retries: int = 2,
+    def __init__(self, user_agent: str, delay: float = 1.5, timeout: float = 25, retries: int = 3,
                  respect_robots: bool = True):
         self.s = requests.Session()
         self.s.headers.update({
@@ -102,7 +102,11 @@ class PoliteClient:
                 r = self.s.get(url, timeout=self.timeout, **kw)
                 if r.status_code in (429, 503) and attempt < self.retries:
                     ra = r.headers.get("Retry-After", "")
-                    time.sleep(min(int(ra) if ra.isdigit() else 10 * (attempt + 1), 120))
+                    wait = int(ra) if ra.isdigit() else 15 * (attempt + 1)
+                    log.info("%s svarede %s – venter %ss", urlparse(url).netloc, r.status_code, min(wait, 120))
+                    time.sleep(min(wait, 120))
+                    # sænk tempoet for denne vært resten af kørslen
+                    self.delay = max(self.delay, 3.0)
                     continue
                 return r
             except requests.RequestException as e:

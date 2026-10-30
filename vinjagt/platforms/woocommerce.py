@@ -34,6 +34,16 @@ def offer_ids(client, base: str, retailer: dict, info: dict) -> set[int]:
         m = re.search(r"/(?:produkt-kategori|product-category|kategori|category)/(?:[^/]+/)*?([^/]+)/?$", urlparse(u).path)
         if m:
             slugs.append(m.group(1).lower())
+    if any(urlparse(u).path in ("", "/") for u in retailer.get("offer_urls") or []):
+        try:
+            html = client.get_text(base + "/") or ""
+        except Exception:  # noqa: BLE001
+            html = ""
+        host = urlparse(base).netloc.replace("www.", "")
+        info["home_links"] = {(urlparse(h).netloc.replace("www.", "") + urlparse(h).path).rstrip("/")
+                              for h in re.findall(r'href=["\']([^"\']+)["\']', html) if host in h}
+        if info["home_links"]:
+            info["offer_pages"] = [base + "/"]
     if not slugs:
         return set()
     cats: dict[str, int] = {}
@@ -58,7 +68,7 @@ def offer_ids(client, base: str, retailer: dict, info: dict) -> set[int]:
             ids.update(p.get("id") for p in data)
             if len(data) < 100:
                 break
-    info["offer_pages"] = found
+    info["offer_pages"] = info.get("offer_pages", []) + found
     return ids
 
 
@@ -66,6 +76,8 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
     base = retailer["url"].rstrip("/")
     info = info if info is not None else {}
     in_offer = offer_ids(client, base, retailer, info)
+    home = info.pop("home_links", set())
+    home_all = bool(retailer.get("offer_all_listed"))
     page, seen, total_pages = 1, 0, None
     while seen < max_products:
         data, resp = client.get_json(f"{base}{API}?per_page=100&page={page}")
@@ -105,7 +117,9 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
                 country=X.detect_country(country) if country else None,
                 vintage=X.parse_vintage(vintage) if vintage else None,
                 on_offer=(bool(p.get("on_sale")) or bool(regular and price and regular > price)
-                          or p.get("id") in in_offer or X.has_offer_tag(cats)),
+                          or p.get("id") in in_offer or X.has_offer_tag(cats)
+                          or (home_all and (urlparse(p.get("permalink") or "").netloc.replace("www.", "")
+                                            + urlparse(p.get("permalink") or "").path).rstrip("/") in home)),
             )
         page += 1
         if total_pages and page > total_pages:

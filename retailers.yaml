@@ -98,11 +98,13 @@
   city: København
   note: Naturvin
   offer_urls: [/]           # tilbud står på forsiden
+  offer_all_listed: true     # alle vine på forsiden tæller som tilbud
 
 - name: BonBon Vin
   url: https://bonbonvin.dk
   note: Naturvin
   offer_urls: [/]           # tilbud står på forsiden
+  offer_all_listed: true     # alle vine på forsiden tæller som tilbud
 
 - name: Johnsen Wine
   url: https://www.johnsenwine.dk

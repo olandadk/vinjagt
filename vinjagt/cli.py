@@ -148,7 +148,7 @@ def cmd_status(cfg, db):
     ids = {r["id"] for r in C.retailers(cfg)}
     for r in [x for x in db.retailers() if x["id"] in ids]:
         ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["last_scan"])) if r["last_scan"] else "-"
-        print(f"{r['name']:26} {r['platform'] or '-':12} {r['last_status'] or '-':10} {r['wines'] or 0:5} vine "
+        print(f"{r['name']:26} {r['platform'] or '-':12} {r['last_status'] or '-':10} {r['products'] or 0:5} produkter {r['wines'] or 0:5} vine "
               f"{r['offer_products'] or 0:5} tilbud  {ts}  {r['error'] or ''}")
 
 

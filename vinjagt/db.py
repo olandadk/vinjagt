@@ -31,6 +31,18 @@ CREATE INDEX IF NOT EXISTS ext_key ON ext_ratings(wine_key);
 """
 
 
+def url_group(u: str) -> tuple:
+    """Grupperer adresser efter form: (første mappe, dybde, filendelse)."""
+    from urllib.parse import urlparse
+    import re as _re
+    path = urlparse(u).path
+    segs = [s for s in path.split("/") if s]
+    ext = _re.search(r"\.[a-z]{2,5}$", path)
+    if len(segs) <= 1:
+        return ("*", len(segs), ext.group(0) if ext else "")
+    return (segs[0].lower(), len(segs), ext.group(0) if ext else "")
+
+
 class DB:
     def __init__(self, path: str):
         self.c = sqlite3.connect(path, timeout=60, check_same_thread=False)
@@ -123,9 +135,27 @@ class DB:
             k = known.get(u)
             return k is not None and k["is_product"] == 0 and now - (k["last_fetched"] or 0) < 30 * 86400
 
+        # Lær af tidligere kørsler: hvilke slags adresser (første mappe + dybde) er produkter?
+        stats: dict[tuple, list[int]] = {}
+        for u, k in known.items():
+            if k["is_product"] is None:
+                continue
+            st = stats.setdefault(url_group(u), [0, 0])
+            st[0] += k["is_product"]
+            st[1] += 1
+
+        def rate(u):
+            p, n = stats.get(url_group(u), (0, 0))
+            return (p + 1) / (n + 2)
+
+        def dead_group(u):  # mindst 8 forsøg og ingen produkter
+            p, n = stats.get(url_group(u), (0, 0))
+            return n >= 8 and p == 0
+
         pri = [u for u in dict.fromkeys(priority) if not skip(u)]
-        rest = [u for u in dict.fromkeys(urls) if u not in set(pri) and not skip(u)]
-        rest.sort(key=lambda u: (known.get(u, {}).get("last_fetched") or 0))
+        pset = set(pri)
+        rest = [u for u in dict.fromkeys(urls) if u not in pset and not skip(u) and not dead_group(u)]
+        rest.sort(key=lambda u: (-round(rate(u), 1), known.get(u, {}).get("last_fetched") or 0))
         return pri + rest
 
     def known_non_products(self, rid: str) -> set[str]:

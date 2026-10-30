@@ -59,7 +59,9 @@ def normalize(p: Product) -> Wine | None:
     desc = X.strip_html(p.description)
     wtype = X.classify_type(p.name, p.categories, desc)
     if not X.is_wine(p.name, p.categories, wtype):
-        return None
+        # Vinhandlere navngiver ofte vine uden 'vin'/drue i navnet: en årgang og ingen ikke-vin-ord er nok
+        if X.has_word(p.name, X.NON_WINE) or not (p.vintage or X.parse_vintage(p.name)):
+            return None
 
     vol = p.volume_cl or X.parse_volume_cl(p.name) or X.parse_volume_cl(desc[:400]) or 75.0
     if vol < 35 or vol > 300:  # små flasker, bag-in-box mv. springes over

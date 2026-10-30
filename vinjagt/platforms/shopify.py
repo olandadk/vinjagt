@@ -10,8 +10,17 @@ from ..models import Product
 
 
 def detect(client, base: str) -> bool:
-    data, _ = client.get_json(f"{base}/products.json?limit=1")
-    return isinstance(data, dict) and isinstance(data.get("products"), list)
+    data, r = client.get_json(f"{base}/products.json?limit=1")
+    if isinstance(data, dict) and isinstance(data.get("products"), list):
+        return True
+    # API'et kan være midlertidigt overbelastet (429) – kig efter Shopify-spor på forsiden
+    if r is not None and r.status_code == 429:
+        try:
+            html = client.get_text(base + "/") or ""
+        except Exception:  # noqa: BLE001
+            return False
+        return "cdn.shopify.com" in html or "Shopify.theme" in html
+    return False
 
 
 def _qty_from_variant(title: str) -> int | None:
