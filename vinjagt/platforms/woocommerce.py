@@ -1,7 +1,9 @@
 """WooCommerce: den offentlige Store API (/wp-json/wc/store/v1/products) kræver ingen nøgle."""
 from __future__ import annotations
 
+import re
 from typing import Iterator
+from urllib.parse import urlparse
 
 from .. import extract as X
 from ..models import Product
@@ -25,8 +27,45 @@ def _money(prices: dict, key: str) -> float | None:
         return X.parse_price(raw)
 
 
-def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
+def offer_ids(client, base: str, retailer: dict, info: dict) -> set[int]:
+    """Produkt-id'er i tilbudskategorier, fx /produkt-kategori/aktuelle-tilbud/."""
+    slugs = []
+    for u in retailer.get("offer_urls") or []:
+        m = re.search(r"/(?:produkt-kategori|product-category|kategori|category)/(?:[^/]+/)*?([^/]+)/?$", urlparse(u).path)
+        if m:
+            slugs.append(m.group(1).lower())
+    if not slugs:
+        return set()
+    cats: dict[str, int] = {}
+    for page in range(1, 11):
+        data, _ = client.get_json(f"{base}{API}/categories?per_page=100&page={page}")
+        if not isinstance(data, list) or not data:
+            break
+        cats.update({c.get("slug", "").lower(): c.get("id") for c in data})
+        if len(data) < 100:
+            break
+    ids: set[int] = set()
+    found = []
+    for slug in slugs:
+        cid = cats.get(slug)
+        if not cid:
+            continue
+        found.append(f"{base}/produkt-kategori/{slug}/")
+        for page in range(1, 21):
+            data, _ = client.get_json(f"{base}{API}?category={cid}&per_page=100&page={page}")
+            if not isinstance(data, list) or not data:
+                break
+            ids.update(p.get("id") for p in data)
+            if len(data) < 100:
+                break
+    info["offer_pages"] = found
+    return ids
+
+
+def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = None) -> Iterator[Product]:
     base = retailer["url"].rstrip("/")
+    info = info if info is not None else {}
+    in_offer = offer_ids(client, base, retailer, info)
     page, seen, total_pages = 1, 0, None
     while seen < max_products:
         data, resp = client.get_json(f"{base}{API}?per_page=100&page={page}")
@@ -65,7 +104,8 @@ def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
                 sku=p.get("sku") or None,
                 country=X.detect_country(country) if country else None,
                 vintage=X.parse_vintage(vintage) if vintage else None,
-                on_offer=bool(p.get("on_sale")) or bool(regular and price and regular > price),
+                on_offer=(bool(p.get("on_sale")) or bool(regular and price and regular > price)
+                          or p.get("id") in in_offer or X.has_offer_tag(cats)),
             )
         page += 1
         if total_pages and page > total_pages:

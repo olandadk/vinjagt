@@ -181,6 +181,16 @@ def has_word(text: str, words: Iterable[str]) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------- tilbudsmærker
+
+OFFER_TAGS = ["tilbud", "på tilbud", "paa tilbud", "sale", "on sale", "udsalg", "kampagne", "nedsat", "spotpris",
+              "black friday", "black week", "outlet", "restsalg", "lagersalg", "ugens tilbud", "månedens tilbud"]
+
+
+def has_offer_tag(tags) -> bool:
+    return any(has_word(t, OFFER_TAGS) for t in tags or [] if t)
+
+
 # ---------------------------------------------------------------- ikke-vin
 
 NON_WINE = [

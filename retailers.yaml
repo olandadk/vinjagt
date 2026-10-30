@@ -9,6 +9,8 @@
 #   offer_urls           sider med tilbud – produkter linket herfra hentes først (kun 'generic')
 #   product_url_pattern  regex der matcher produkt-URL'er i sitemap (kun 'generic', valgfri)
 #   max_pages            maks. produktsider pr. kørsel (kun 'generic', overskriver config)
+#   offer_all_listed     true = alle varer på tilbudssiden tæller som tilbud, også uden førpris
+#                        (standard for forsiden: kun varer med førpris eller tilbudsmærke)
 #   enabled              false = spring over
 #
 # Platformen findes automatisk ved første kørsel (python -m vinjagt detect).
@@ -98,13 +100,17 @@
   url: https://untamedwine.org
   city: København
   note: Naturvin
+  offer_urls: [/]           # tilbud står på forsiden
 
 - name: BonBon Vin
   url: https://bonbonvin.dk
   note: Naturvin
+  offer_urls: [/]           # tilbud står på forsiden
 
-- name: HaugaardVin
-  url: https://www.haugaardvin.dk
+- name: Johnsen Wine
+  url: https://www.johnsenwine.dk
+  note: Tidligere HaugaardVin
+  offer_urls: [/produkt-kategori/aktuelle-tilbud/]
 
 - name: Bisgaard Vinhandel
   url: https://www.bisgaard-vin.dk

@@ -18,7 +18,7 @@ def test_end_to_end(tmp_path):
     try:
         (tmp_path / "retailers.yaml").write_text(yaml.safe_dump([
             {"name": "Shop Shopify", "url": "http://127.0.0.1:8701"},
-            {"name": "Shop Woo", "url": "http://127.0.0.1:8702"},
+            {"name": "Shop Woo", "url": "http://127.0.0.1:8702", "offer_urls": ["/produkt-kategori/aktuelle-tilbud/"]},
             {"name": "Shop Generisk", "url": "http://127.0.0.1:8703"},
         ]))
         cfg = {"data_dir": str(tmp_path / "data"), "site_dir": str(tmp_path / "site"), "request_delay": 0,
@@ -47,6 +47,7 @@ def test_end_to_end(tmp_path):
         assert offers[0] == n_before and "/tilbud" in offers[1], offers
         assert db.execute("SELECT on_offer FROM wines WHERE url LIKE '%8701/products/w5'").fetchone()[0] == 1
         assert "/collections/tilbud" in db.execute("SELECT offer_pages FROM retailers WHERE id='shop-shopify'").fetchone()[0]
+        assert db.execute("SELECT on_offer FROM wines WHERE url LIKE '%8702/vin/w5'").fetchone()[0] == 1
         gin = db.execute("SELECT COUNT(*) FROM wines WHERE name LIKE '%Gin%'").fetchone()[0]
         assert gin == 0
 

@@ -27,7 +27,17 @@ COMMON_OFFER_COLLECTIONS = ["tilbud", "alle-tilbud", "sale", "udsalg", "vintilbu
 
 def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
     """Produkter i shoppens tilbudssamlinger (fx /collections/tilbud)."""
-    paths = [urlparse(u).path.rstrip("/") for u in retailer.get("offer_urls") or [] if "/collections/" in u]
+    offer_urls = retailer.get("offer_urls") or []
+    paths = [urlparse(u).path.rstrip("/") for u in offer_urls if "/collections/" in u]
+    info["home_handles"] = set()
+    if any(urlparse(u).path in ("", "/") for u in offer_urls):  # forsiden som tilbudsside
+        try:
+            html = client.get_text(base + "/") or ""
+        except Exception:  # noqa: BLE001
+            html = ""
+        info["home_handles"] = set(re.findall(r"/products/([a-z0-9][a-z0-9\-_%]*)", html, flags=re.I))
+        if info["home_handles"]:
+            info.setdefault("offer_pages_extra", []).append(base + "/")
     if not paths and retailer.get("discover_offers", True):
         paths = [f"/collections/{c}" for c in COMMON_OFFER_COLLECTIONS]
     handles: set[str] = set()
@@ -46,7 +56,7 @@ def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
                 break
         if got:
             found.append(base + path)
-    info["offer_pages"] = found
+    info["offer_pages"] = found + info.pop("offer_pages_extra", [])
     return handles
 
 
@@ -54,6 +64,8 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
     base = retailer["url"].rstrip("/")
     info = info if info is not None else {}
     in_offer = offer_handles(client, base, retailer, info)
+    home = info.pop("home_handles", set())
+    home_all = bool(retailer.get("offer_all_listed"))
     page, seen = 1, 0
     while seen < max_products:
         data, resp = client.get_json(f"{base}/products.json?limit=250&page={page}")
@@ -99,7 +111,9 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
                 qty_tiers=[t for t in tiers if price and t[1] <= price],
                 sku=v.get("sku"),
                 gtin=v.get("barcode") or None,
-                on_offer=bool(compare and price and compare > price) or p.get("handle") in in_offer,
+                on_offer=(bool(compare and price and compare > price) or p.get("handle") in in_offer
+                          or X.has_offer_tag(tags)
+                          or (p.get("handle") in home and home_all)),
             )
         if len(data["products"]) < 250:
             break

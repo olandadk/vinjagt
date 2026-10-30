@@ -101,13 +101,19 @@ class Woo(Shopify):
         u = urlparse(self.path)
         if u.path == "/products.json":
             self.send_response(404); self.end_headers(); return
+        if u.path == "/wp-json/wc/store/v1/products/categories":
+            page = int(parse_qs(u.query).get("page", ["1"])[0])
+            return self._json([{"id": 77, "slug": "aktuelle-tilbud"}] if page == 1 else [])
+        if u.path == "/wp-json/wc/store/v1/products" and parse_qs(u.query).get("category") == ["77"]:
+            page = int(parse_qs(u.query).get("page", ["1"])[0])
+            return self._json([{"id": 1005}] if page == 1 else [])
         if u.path == "/wp-json/wc/store/v1/products":
             page = int(parse_qs(u.query).get("page", ["1"])[0])
             items = _shop_prices(2) if page == 1 else []
             out = []
             for w in items:
                 reg = w["before"] or w["price"]
-                out.append({"name": f"{w['prod']} {w['name']} {w['y'] or ''} 75 cl", "permalink": f"http://127.0.0.1:8702/vin/w{w['i']}",
+                out.append({"id": 1000 + w["i"], "name": f"{w['prod']} {w['name']} {w['y'] or ''} 75 cl", "permalink": f"http://127.0.0.1:8702/vin/w{w['i']}",
                             "prices": {"price": str(int(w["price"] * 100)), "regular_price": str(int(reg * 100)),
                                        "currency_minor_unit": 2},
                             "categories": [{"name": "Vin"}], "tags": [], "is_in_stock": True,

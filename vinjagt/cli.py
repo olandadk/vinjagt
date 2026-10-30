@@ -52,10 +52,8 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
             bg = int(r.get("background_pages", cfg["background_pages"]))
             it = mod.scan(client, r, limit, db=db_for_pages, background=bg, info=info)
-        elif platform == "shopify":
-            it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         else:
-            it = mod.scan(client, r, int(cfg["max_products_api"]))
+            it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         wines, n = [], 0
         for p in it:
             n += 1
@@ -163,7 +161,12 @@ def cmd_offers(cfg, only=None):
         row = db.retailer(r["id"])
         plat = r.get("platform") or (row["platform"] if row else None)
         if plat == "woocommerce":
-            print(f"{r['name']}: woocommerce – tilbud læses direkte fra shoppens API")
+            from .platforms import woocommerce
+            info = {}
+            n = len(woocommerce.offer_ids(client, r["url"].rstrip("/"), r, info))
+            print(f"{r['name']} (woocommerce): varer markeret 'på udsalg'" + (f" + {n} i tilbudskategori" if n else ""))
+            for p in info.get("offer_pages") or []:
+                print(f"   {p}")
             continue
         if plat == "shopify":
             from .platforms import shopify
