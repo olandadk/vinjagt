@@ -39,6 +39,8 @@ def _client(cfg) -> PoliteClient:
 def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     t0 = time.time()
     client = _client(cfg)
+    if r.get("request_delay"):
+        client.delay = float(r["request_delay"])
     try:
         try:  # hurtigt tjek af om shoppen overhovedet svarer
             client.s.head(r["url"], timeout=min(15, float(cfg["timeout"])), allow_redirects=True)

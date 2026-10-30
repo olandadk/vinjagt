@@ -253,10 +253,27 @@ OFFER_SKIP = re.compile(r"betingelser|vilkaar|vilkår|nyhedsbrev|newsletter|gave
 PAGINATION_RX = re.compile(r"[?&](?:p|page|side|pg|sida)=(\d+)|/(?:page|side)[/-](\d+)", re.I)
 
 
-def _soup_links(html: str, page_url: str, host: str) -> list[tuple[str, str]]:
+CHROME_RX = re.compile(r"(^|[\s_-])(nav|navbar|navigation|menu|megamenu|mega-menu|header|footer|breadcrumbs?|"
+                       r"topbar|sidebar|filter|facet|pagination-?bar|cookie|newsletter)([\s_-]|$)", re.I)
+
+
+def _in_chrome(a) -> bool:
+    """Ligger linket i sidens menu, top, bund, filtre eller lignende (og ikke i selve indholdet)?"""
+    for parent in a.parents:
+        if parent.name in ("nav", "header", "footer", "aside"):
+            return True
+        ident = " ".join(parent.get("class") or []) + " " + (parent.get("id") or "") + " " + (parent.get("role") or "")
+        if ident.strip() and CHROME_RX.search(ident):
+            return True
+    return False
+
+
+def _soup_links(html: str, page_url: str, host: str, content_only: bool = False) -> list[tuple[str, str]]:
     soup = BeautifulSoup(html, "html.parser")
     out = []
     for a in soup.find_all("a", href=True):
+        if content_only and _in_chrome(a):
+            continue
         u = urljoin(page_url, a["href"]).split("#")[0]
         if urlparse(u).netloc.replace("www.", "") == host.replace("www.", ""):
             out.append((u, a.get_text(" ", strip=True)[:80]))
@@ -341,7 +358,8 @@ def crawl_offer_pages(client, pages: list[str], host: str, is_product, max_listi
             pu = urlparse(u)
             if PAGINATION_RX.search(u) and pu.path.rstrip("/").startswith(root) and u not in seen and len(queue) < 60:
                 queue.append(u)
-            elif is_product(u):
+        for u, _ in _soup_links(html, page, host, content_only=True):
+            if not PAGINATION_RX.search(u) and is_product(u):
                 products.append(u)
     return list(dict.fromkeys(products))
 
@@ -363,7 +381,11 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     nav: set[str] = set()
     if not include:
         try:
-            nav = {url_key(u) for u, _ in _soup_links(client.get_text(base + "/") or "", base + "/", host)}
+            home_html = client.get_text(base + "/") or ""
+            all_links = {url_key(u) for u, _ in _soup_links(home_html, base + "/", host)}
+            content = {url_key(u) for u, _ in _soup_links(home_html, base + "/", host, content_only=True)}
+            nav = all_links - content  # kun menu/top/bund – vine i forsidens indhold er ikke 'menu'
+
         except Exception:  # noqa: BLE001
             nav = set()
 

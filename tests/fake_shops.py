@@ -150,7 +150,9 @@ class Generic(BaseHTTPRequestHandler):
             return self._send(html, "text/html")
         if u.path == "/":
             return self._send("<html><body><nav><a href='/tilbud'>Ugens tilbud</a><a href='/om-os'>Om os</a><a href='/vin/roedvin'>Rødvin</a>"
-                              "<a href='/handelsbetingelser'>Betingelser</a></nav></body></html>", "text/html")
+                              "<a href='/handelsbetingelser'>Betingelser</a></nav>"
+                              + "".join(f"<div class='product'><a href='{p}'>vin</a></div>" for p, w in items.items() if w["before"])[:400]
+                              + "</body></html>", "text/html")
         if u.path == "/tilbud":
             offers = [p for p, w in items.items() if w["before"]]
             page = int(parse_qs(u.query).get("page", ["1"])[0])

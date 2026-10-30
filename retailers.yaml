@@ -11,6 +11,7 @@
 #   max_pages            maks. produktsider pr. kørsel (kun 'generic', overskriver config)
 #   offer_all_listed     true = alle varer på tilbudssiden tæller som tilbud, også uden førpris
 #                        (standard for forsiden: kun varer med førpris eller tilbudsmærke)
+#   request_delay        sekunder mellem kald til netop denne shop (overskriver config)
 #   enabled              false = spring over
 #
 # Platformen findes automatisk ved første kørsel (python -m vinjagt detect).
@@ -45,6 +46,7 @@
   city: Skovlunde
   note: Importør og webshop, grundlagt 1993
   offer_urls: [/collections/tilbud]
+  request_delay: 10         # Shopify bremser ved hurtige kald (HTTP 429)
 
 - name: Bichel Vine
   url: https://www.bichel.dk
