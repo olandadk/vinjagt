@@ -73,3 +73,13 @@ def test_matching():
         {"id": 3, "name": "Fontanafredda Barolo 2018", "vintage": 2018, "volume_cl": 75, "wine_type": "rød"},
     ])
     assert g[1] == g[2] and g[3] != g[1]
+
+
+def test_offer_ranking():
+    from vinjagt.platforms.generic import _rank_offer
+    assert _rank_offer("https://x.dk/tilbud", "Tilbud") > _rank_offer("https://x.dk/tilbud/smagekasser-pakketilbud", "Smagekasser")
+    assert _rank_offer("https://x.dk/shop/singular-tawny-port-2890p.html", "Tilbud") == 0
+    assert _rank_offer("https://x.dk/collections/alle-tilbud/products/chateau-x", "Tilbud") == 0
+    assert _rank_offer("https://x.dk/oevrige-vine/varekort/brugnon", "Tilbud") == 0
+    assert _rank_offer("https://x.dk/handelsbetingelser", "Tilbud") == 0
+    assert _rank_offer("https://x.dk/alle-tilbud", "Alle tilbud") >= 3

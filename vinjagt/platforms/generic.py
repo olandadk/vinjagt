@@ -249,23 +249,63 @@ def _soup_links(html: str, page_url: str, host: str) -> list[tuple[str, str]]:
     return out
 
 
-def discover_offer_pages(client, base: str, host: str, limit: int = 6) -> list[str]:
-    """Find tilbudssider ud fra forsidens links (url eller linktekst indeholder 'tilbud', 'udsalg' ...)."""
+# Ligner en produktside – ikke en tilbudsoversigt
+PRODUCT_LIKE = re.compile(r"/products?/|/produkt/|/varekort/|/vare/|-\d+p\.html$|/p/\d|\.aspx\?id=|/item/", re.I)
+# Blandede kasser, gaver og ikke-vin – kan ikke sammenlignes med andre forhandleres priser
+OFFER_PENALTY = re.compile(r"smagekasse|pakke|vingave|gave|spiritus|whisky|gin|\bøl\b|oel|chokolade|glas|tilbehoer|tilbehør", re.I)
+COMMON_OFFER_PATHS = ["/tilbud", "/tilbud/", "/alle-tilbud", "/vintilbud", "/udsalg", "/kampagner", "/kampagne",
+                      "/vin/tilbud", "/shop/tilbud", "/tilbud.html", "/sale", "/collections/tilbud", "/produkt-kategori/tilbud/"]
+
+
+def _rank_offer(u: str, text: str) -> int:
+    path = urlparse(u).path
+    if PRODUCT_LIKE.search(path) or OFFER_SKIP.search(path + " " + text) or path in ("", "/"):
+        return 0
+    score = (2 if OFFER_RX.search(text) else 0) + (1 if OFFER_RX.search(path) else 0)
+    if not score:
+        return 0
+    if OFFER_PENALTY.search(path + " " + text):
+        score -= 2
+    if path.strip("/").count("/") == 0:  # topniveau som /tilbud eller /alle-tilbud
+        score += 1
+    return score
+
+
+def discover_offer_pages(client, base: str, host: str, limit: int = 6, sitemap_urls_: list[str] | None = None) -> list[str]:
+    """Find tilbudssider: 1) links på forsiden, 2) tilbuds-URL'er i sitemap, 3) almindelige adresser som /tilbud."""
+    scored: dict[str, int] = {}
     try:
         html = client.get_text(base + "/")
     except Exception:  # noqa: BLE001
-        return []
-    if not html:
-        return []
-    scored: dict[str, int] = {}
-    for u, text in _soup_links(html, base + "/", host):
-        path = urlparse(u).path + "?" + urlparse(u).query
-        if OFFER_SKIP.search(path) or OFFER_SKIP.search(text) or urlparse(u).path in ("", "/"):
+        html = None
+    for u, text in (_soup_links(html, base + "/", host) if html else []):
+        s = _rank_offer(u, text)
+        if s > 0:
+            scored[u] = max(scored.get(u, 0), s)
+    for u in sitemap_urls_ or []:
+        s = _rank_offer(u, "")
+        if s > 0:
+            scored.setdefault(u, s)
+    if not scored:
+        for p in COMMON_OFFER_PATHS:
+            u = base + p
+            try:
+                r = client.get(u)
+            except Exception:  # noqa: BLE001
+                continue
+            final = urlparse(r.url or u).path.rstrip("/")
+            if r.status_code == 200 and final not in ("",) and "html" in r.headers.get("Content-Type", "html"):
+                scored[r.url or u] = 1
+                break
+    # spring under-sider over, når oversigten selv er med (fx /tilbud/hvidvin når /tilbud findes)
+    ranked = [u for u, _ in sorted(scored.items(), key=lambda x: (-x[1], len(x[0])))]
+    norm = lambda u: urlparse(u).path.rstrip("/").lower()  # noqa: E731
+    chosen: list[str] = []
+    for u in ranked:
+        if any(norm(u).startswith(norm(c) + "/") for c in chosen) or norm(u) in {norm(c) for c in chosen}:
             continue
-        hit = (2 if OFFER_RX.search(text) else 0) + (1 if OFFER_RX.search(path) else 0)
-        if hit:
-            scored[u] = max(scored.get(u, 0), hit)
-    return [u for u, _ in sorted(scored.items(), key=lambda x: (-x[1], len(x[0])))][:limit]
+        chosen.append(u)
+    return chosen[:limit]
 
 
 def crawl_offer_pages(client, pages: list[str], host: str, is_product, max_listing_pages: int = 15) -> list[str]:
@@ -285,7 +325,7 @@ def crawl_offer_pages(client, pages: list[str], host: str, is_product, max_listi
         root = urlparse(page).path.rstrip("/")
         for u, _ in _soup_links(html, page, host):
             pu = urlparse(u)
-            if PAGINATION_RX.search(u) and pu.path.rstrip("/").startswith(root) and u not in seen:
+            if PAGINATION_RX.search(u) and pu.path.rstrip("/").startswith(root) and u not in seen and len(queue) < 60:
                 queue.append(u)
             elif is_product(u):
                 products.append(u)
@@ -300,9 +340,10 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     base = retailer["url"].rstrip("/")
     host = urlparse(base).netloc
     include = re.compile(retailer["product_url_pattern"], re.I) if retailer.get("product_url_pattern") else None
-    urls = [u for u in sitemap_urls(client, base) if urlparse(u).netloc.endswith(host.replace("www.", ""))]
-    urls = [u for u in urls if (include.search(u) if include else not EXCLUDE.search(urlparse(u).path))]
-    urls = [u for u in urls if urlparse(u).path not in ("", "/") and not OFFER_RX.search(urlparse(u).path)]
+    all_urls = [u for u in sitemap_urls(client, base) if urlparse(u).netloc.endswith(host.replace("www.", ""))]
+    urls = [u for u in all_urls if (include.search(u) if include else not EXCLUDE.search(urlparse(u).path))]
+    urls = [u for u in urls if urlparse(u).path not in ("", "/") and
+            (not OFFER_RX.search(urlparse(u).path) or PRODUCT_LIKE.search(urlparse(u).path))]
     known = set(urls)
 
     def is_product(u: str) -> bool:
@@ -314,7 +355,7 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
 
     offer_pages = [urljoin(base + "/", o) for o in retailer.get("offer_urls") or []]
     if not offer_pages or retailer.get("discover_offers", True):
-        offer_pages += discover_offer_pages(client, base, host)
+        offer_pages += discover_offer_pages(client, base, host, sitemap_urls_=all_urls)
     offer_pages = list(dict.fromkeys(offer_pages))
     offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []
     info.update(offer_pages=offer_pages, offer_products=len(offer_products))

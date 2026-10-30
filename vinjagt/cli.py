@@ -150,13 +150,24 @@ def cmd_offers(cfg, only=None):
     from urllib.parse import urlparse
 
     from .platforms import generic
+    import os
+
+    from .db import DB
+    db = DB(os.path.join(cfg["data_dir"], "vinjagt.sqlite"))
     client = _client(cfg)
     for r in C.retailers(cfg):
         if only and r["id"] not in only:
             continue
-        pages = list(r.get("offer_urls") or []) + generic.discover_offer_pages(client, r["url"], urlparse(r["url"]).netloc)
-        print(f"{r['name']}:")
-        for p in pages or ["  (ingen fundet – Shopify/WooCommerce-shops behøver ingen; ellers tilføj offer_urls i retailers.yaml)"]:
+        row = db.retailer(r["id"])
+        plat = r.get("platform") or (row["platform"] if row else None)
+        if plat in ("shopify", "woocommerce"):
+            print(f"{r['name']}: {plat} – tilbud læses direkte fra shoppens API, ingen tilbudsside nødvendig")
+            continue
+        sm = generic.sitemap_urls(client, r["url"]) if plat == "generic" else []
+        pages = list(r.get("offer_urls") or []) + generic.discover_offer_pages(
+            client, r["url"], urlparse(r["url"]).netloc, sitemap_urls_=sm)
+        print(f"{r['name']} ({plat or 'platform ukendt endnu'}):")
+        for p in pages or ["  (ingen fundet – tilføj offer_urls i retailers.yaml)"]:
             print(f"   {p}")
 
 
