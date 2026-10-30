@@ -45,7 +45,7 @@ def _fit(points_prices: list[tuple[float, float]]):
 
 
 def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[dict]], ext_rows: list[dict],
-             retailers: dict[str, dict], cfg: dict) -> tuple[list[dict], dict]:
+             retailers: dict[str, dict], cfg: dict, explain: dict | None = None) -> tuple[list[dict], dict]:
     min_discount = float(cfg.get("min_discount", 0.10))
     min_value = float(cfg.get("min_value_points", 3.0))
     min_vivino_count = int(cfg.get("min_vivino_ratings", 25))
@@ -146,6 +146,10 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             value = round(q - (a + b * math.log(p1)), 1)
 
         is_deal = best_disc >= min_discount or (value is not None and value >= min_value and q >= 88)
+        if explain is not None and w["id"] in explain:
+            explain[w["id"]] = {"refs": [(lbl, round(ref, 2), wgt) for lbl, ref, wgt in refs], "best_disc": best_disc,
+                                "best_ref": best_ref, "q": q, "value": value, "is_deal": is_deal, "others": len(others),
+                                "min_discount": min_discount}
         stats["vine"] += 1
         if not is_deal:
             continue

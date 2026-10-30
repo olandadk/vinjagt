@@ -11,6 +11,7 @@
   offers     vis hvilke tilbudssider der findes hos hver forhandler
   diagnose   vis hvorfor produktsider ikke giver vine (pr. forhandler)
   debug URL  hent én side og vis hvad scanneren ser
+  why URL    forklar hvorfor en vin (ikke) står på tilbudslisten
 """
 from __future__ import annotations
 
@@ -279,6 +280,64 @@ def cmd_debug(cfg, url: str):
         print(f"   som vin: {'nej (ikke vin / ingen pris)' if not w else f'{w.wine_type}, {w.country}, {w.vintage}, 1 fl. {w.price_1} / 6 fl. {w.price_6}'}")
 
 
+def cmd_why(cfg, db, url: str):
+    """Forklar hvorfor en bestemt vin (ikke) står på tilbudslisten."""
+    import json as _json
+    from urllib.parse import urlparse
+
+    from .matching import group_wines
+    from .platforms.generic import url_key
+    from .scoring import evaluate
+    key = url_key(url)
+    host = urlparse(url).netloc.replace("www.", "")
+    r = next((x for x in C.retailers(cfg) if urlparse(x["url"]).netloc.replace("www.", "") == host), None)
+    print(f"Forhandler: {r['name'] if r else 'ukendt – ikke på listen i retailers.yaml'}")
+    if r:
+        row = db.retailer(r["id"])
+        if row:
+            print(f"   platform {row['platform']}, sidst scannet {time.strftime('%d/%m %H:%M', time.localtime(row['last_scan'] or 0))}")
+            print(f"   tilbudssider: {', '.join(_json.loads(row['offer_pages'] or '[]')) or 'ingen'}")
+    page = next((p for p in db.c.execute("SELECT * FROM pages WHERE url LIKE ?", (f"%{urlparse(url).path.rstrip('/')}%",))
+                 if url_key(p["url"]) == key), None)
+    wine = next((w for w in db.c.execute("SELECT * FROM wines WHERE url LIKE ?", (f"%{urlparse(url).path.rstrip('/')}%",))
+                 if url_key(w["url"]) == key), None)
+    if page:
+        print(f"Siden: hentet {time.strftime('%d/%m %H:%M', time.localtime(page['last_fetched']))}, status {page['status']}, "
+              f"{'produkt læst' if page['is_product'] else 'ingen produktdata'}")
+    elif not wine:
+        print("Siden: ALDRIG HENTET. Den stod ikke på de fundne tilbudssider og er ikke nået i den daglige stikprøve.")
+        print("   Tip: kør  python3 -m vinjagt debug URL  for at se om siden kan læses.")
+        return
+    if not wine:
+        print("Vinen: ikke gemt (ikke genkendt som vin, eller ingen pris). Kør debug på URL'en.")
+        return
+    w = dict(wine)
+    print(f"Vinen: {w['name']}  ({w['wine_type'] or 'ukendt type'}, {w['vintage'] or 'uden årgang'})")
+    print(f"   pris 1 fl. {w['price_1']} kr, 6 fl. {w['price_6']} kr, førpris {w['before_price'] or '-'}"
+          f" ({w['before_kind'] or '-'}), på lager: {'ja' if w['in_stock'] else 'nej'}")
+    print(f"   regnes som forhandlertilbud: {'JA' if w['on_offer'] else 'NEJ (ingen førpris og ikke fundet på en tilbudsside)'}")
+    wines = db.current_wines()
+    if not any(x["id"] == w["id"] for x in wines):
+        print("   NB: ikke set i de seneste 10 dage – tæller ikke med")
+        return
+    exp = {w["id"]: None}
+    evaluate(wines, group_wines(wines), db.all_history(), db.ext_ratings(), {}, cfg["scoring"], explain=exp)
+    e = exp[w["id"]]
+    if not e:
+        print("   ikke vurderet (ikke på lager eller ingen pris)")
+        return
+    print(f"   samme vin hos {e['others']} andre forhandlere")
+    for lbl, ref, wgt in e["refs"]:
+        print(f"   reference {lbl}: {ref} kr (vægt {wgt}) -> rabat {round((ref - w['price_1']) / ref * 100, 1)} %")
+    if not e["refs"]:
+        print("   ingen referencepris: ingen førpris, ikke solgt af andre forhandlere, og for lidt prishistorik endnu")
+    print(f"   bedste vægtede rabat: {round(e['best_disc'] * 100, 1)} % (kræver {round(e['min_discount'] * 100)} %)")
+    print(f"   kvalitet: {e['q'] if e['q'] is not None else 'ingen vurdering'}  værdi for prisen: {e['value']}")
+    shown = e["is_deal"] and w["on_offer"]
+    print(f"\nKONKLUSION: {'vises på tilbudslisten' if shown else 'vises IKKE'}" + (
+        "" if shown else (" – ikke et forhandlertilbud" if not w["on_offer"] else " – rabatten er for lille / ingen troværdig reference")))
+
+
 def cmd_serve(cfg, port: int):
     import functools
     import http.server
@@ -289,8 +348,8 @@ def cmd_serve(cfg, port: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="vinjagt", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers", "diagnose", "debug"])
-    ap.add_argument("url", nargs="?", help="URL til 'debug'")
+    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers", "diagnose", "debug", "why"])
+    ap.add_argument("url", nargs="?", help="URL til 'debug' og 'why'")
     ap.add_argument("--only", help="kommasepareret liste af forhandler-id'er")
     ap.add_argument("--config")
     ap.add_argument("--port", type=int, default=8080)
@@ -330,6 +389,8 @@ def main(argv=None):
         cmd_offers(cfg, only)
     if a.command == "diagnose":
         cmd_diagnose(cfg, db, only)
+    if a.command == "why":
+        cmd_why(cfg, db, a.url)
     if a.command == "debug":
         if a.url:
             cmd_debug(cfg, a.url)
