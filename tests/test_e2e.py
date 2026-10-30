@@ -48,7 +48,7 @@ def test_end_to_end(tmp_path):
         assert all(n > 10 for k, (_, n) in status.items() if k != "shop-uden-sitemap"), status
         offers = db.execute("SELECT offer_products, offer_pages FROM retailers WHERE id='shop-generisk'").fetchone()
         n_before = sum(1 for w in fake_shops._GENERIC if w["before"])
-        assert offers[0] == n_before and "/tilbud" in offers[1], offers
+        assert offers[0] >= n_before and "/tilbud" in offers[1], offers  # + 6-flaskestilbud
         pages = dict(db.execute("SELECT url, is_product FROM pages WHERE retailer_id='shop-generisk'").fetchall())
         assert pages.get("http://127.0.0.1:8703/vin/roedvin") in (None, 0)
         assert db.execute("SELECT on_offer FROM wines WHERE url LIKE '%8701/products/w5'").fetchone()[0] == 1
