@@ -24,7 +24,8 @@ class PoliteClient:
         self.s.headers.update({
             "User-Agent": user_agent,
             "Accept-Language": "da-DK,da;q=0.9,en;q=0.6",
-            "Accept": "text/html,application/json,application/xml;q=0.9,*/*;q=0.8",
+            # Kun HTML/XML som standard – nogle shops svarer ellers med JSON (get_json beder selv om JSON)
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5",
         })
         # Mange danske vinbutikker viser en alders-popup; cookies her springer den ofte over.
         self.s.cookies.set("age_verified", "1")

@@ -79,6 +79,10 @@ class _LockedDB:
         with self.lock:
             return self.db.page_order(*a)
 
+    def known_non_products(self, *a):
+        with self.lock:
+            return self.db.known_non_products(*a)
+
     def mark_page(self, *a):
         with self.lock:
             self.db.mark_page(*a)

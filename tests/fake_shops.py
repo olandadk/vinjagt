@@ -134,7 +134,7 @@ class Generic(BaseHTTPRequestHandler):
         if u.path == "/robots.txt":
             return self._send(f"User-agent: *\nDisallow: /kurv\nSitemap: {base}/sitemap.xml\n", "text/plain")
         if u.path == "/sitemap.xml":
-            locs = "".join(f"<url><loc>{base}{p}</loc></url>" for p in items) + f"<url><loc>{base}/om-os</loc></url>"
+            locs = "".join(f"<url><loc>{base}{p}</loc></url>" for p in items) + f"<url><loc>{base}/om-os</loc></url><url><loc>{base}/vin/roedvin</loc></url>"
             return self._send(f'<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{locs}</urlset>', "application/xml")
         if u.path in items:
             w = items[u.path]
@@ -149,7 +149,7 @@ class Generic(BaseHTTPRequestHandler):
                     f"<p>{CRITICS.get(w['name'], '')}</p><div class='related'><p>Før 999 kr</p></div></body></html>")
             return self._send(html, "text/html")
         if u.path == "/":
-            return self._send("<html><body><nav><a href='/tilbud'>Ugens tilbud</a><a href='/om-os'>Om os</a>"
+            return self._send("<html><body><nav><a href='/tilbud'>Ugens tilbud</a><a href='/om-os'>Om os</a><a href='/vin/roedvin'>Rødvin</a>"
                               "<a href='/handelsbetingelser'>Betingelser</a></nav></body></html>", "text/html")
         if u.path == "/tilbud":
             offers = [p for p, w in items.items() if w["before"]]
@@ -157,7 +157,10 @@ class Generic(BaseHTTPRequestHandler):
             half = offers[:2] if page == 1 else offers[2:]
             links = "".join(f"<a href='{p}'>vin</a>" for p in half)
             nxt = "<a href='/tilbud?page=2'>Næste</a>" if page == 1 else ""
-            return self._send(f"<html><body><h1>Tilbud</h1>{links}{nxt}</body></html>", "text/html")
+            menu = "<nav><a href='/vin/roedvin'>Rødvin</a><a href='/om-os'>Om os</a></nav>"
+            return self._send(f"<html><body>{menu}<h1>Tilbud</h1>{links}{nxt}</body></html>", "text/html")
+        if u.path == "/vin/roedvin":
+            return self._send("<html><h1>Rødvin</h1><p>Kategori</p></html>", "text/html")
         if u.path == "/om-os":
             return self._send("<html><h1>Om os</h1></html>", "text/html")
         self.send_response(404); self.end_headers()

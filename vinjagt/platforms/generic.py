@@ -359,9 +359,9 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     urls = [u for u in urls if urlparse(u).path not in ("", "/") and
             (not OFFER_RX.search(urlparse(u).path) or PRODUCT_LIKE.search(urlparse(u).path))]
     known = {url_key(u): u for u in urls}
+    # Links der står på forsiden (menu, footer, kategorier) er ikke tilbudsprodukter – heller ikke når de står i sitemap
     nav: set[str] = set()
-    if not known and not include:
-        # Intet sitemap: links der også står på forsiden (menu, footer) er ikke produkter
+    if not include:
         try:
             nav = {url_key(u) for u, _ in _soup_links(client.get_text(base + "/") or "", base + "/", host)}
         except Exception:  # noqa: BLE001
@@ -371,6 +371,8 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
         path = urlparse(u).path
         if include:
             return bool(include.search(u))
+        if url_key(u) in nav and not homepage_offer:
+            return False
         if known:
             return url_key(u) in known
         return (url_key(u) not in nav and path not in ("", "/") and not EXCLUDE.search(path)
@@ -381,9 +383,13 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     if not offer_pages or retailer.get("discover_offers", True):
         offer_pages += discover_offer_pages(client, base, host, sitemap_urls_=all_urls)
     offer_pages = list(dict.fromkeys(offer_pages))
+    homepage_offer = any(urlparse(p).path in ("", "/") for p in offer_pages)
     offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []
     if known:  # brug sitemap-udgaven af URL'en, så sidestatus matcher
         offer_products = list(dict.fromkeys(known.get(url_key(u), u) for u in offer_products))
+    if db:
+        not_products = db.known_non_products(retailer["id"])
+        offer_products = [u for u in offer_products if u not in not_products]
     info.update(offer_pages=offer_pages, offer_links=len(offer_products))
     log.info("%s: %d tilbudssider, %d tilbudsprodukter, %d produkt-URL'er i sitemap",
              retailer["id"], len(offer_pages), len(offer_products), len(urls))

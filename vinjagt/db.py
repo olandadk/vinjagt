@@ -128,6 +128,9 @@ class DB:
         rest.sort(key=lambda u: (known.get(u, {}).get("last_fetched") or 0))
         return pri + rest
 
+    def known_non_products(self, rid: str) -> set[str]:
+        return {r[0] for r in self.c.execute("SELECT url FROM pages WHERE retailer_id=? AND is_product=0", (rid,))}
+
     def mark_page(self, url: str, rid: str, is_product, status: str):
         self.c.execute("INSERT OR REPLACE INTO pages(url,retailer_id,last_fetched,is_product,status) VALUES(?,?,?,?,?)",
                        (url, rid, time.time(), None if is_product is None else int(is_product), status))
