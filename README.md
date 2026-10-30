@@ -18,6 +18,11 @@ retailers.yaml ──► scan ──► normalisering ──► SQLite (pris pr.
                                   produktsiderne (roteres over nætter)  └ anmelderpoint, danske medier, Vivino*, egne CSV
 ```
 
+**Tilbud først:** Scanneren finder selv hver forhandlers tilbudssider (links som "Tilbud", "Udsalg", "Kampagne" på
+forsiden) og henter alle produkter derfra hver nat, inkl. undersider. Derefter hentes højst `background_pages` (100)
+almindelige produkter, som bruges som markedspris for de andre forhandleres tilbud. Siden viser som standard kun
+forhandlernes egne tilbud. Se hvad der findes med `python3 -m vinjagt offers`, og ret med `offer_urls` i `retailers.yaml`.
+
 Platformen findes automatisk for hver forhandler. Vinene normaliseres (pris pr. 75 cl, pris ved 6 fl., årgang,
 type, land, anmelderpoint), og samme vin genkendes på tværs af shops via navn/producent/årgang/stregkode.
 Hvert tilbud får en score 0–100: 45 % rabat · 35 % værdi for pengene · 20 % kvalitet. Detaljer i `web/metode.html`.

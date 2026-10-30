@@ -232,45 +232,100 @@ def _has_lxml() -> bool:
     return _LXML
 
 
-def _links_from(client, page_url: str, host: str) -> list[str]:
-    try:
-        html = client.get_text(page_url)
-    except Exception:  # noqa: BLE001
-        return []
-    if not html:
-        return []
+OFFER_RX = re.compile(
+    r"tilbud|udsalg|kampagne|nedsat|spar-|/spar\b|outlet|sale\b|/sale|black-?friday|black-?week|cyber|restsalg|"
+    r"lagersalg|ugens|maanedens|månedens|deals?\b|offers?\b|prisfald|skarpe-?priser|bundpris|kassetilbud", re.I)
+OFFER_SKIP = re.compile(r"betingelser|vilkaar|vilkår|nyhedsbrev|newsletter|gavekort|login|konto|kurv|cart|blog|cookie", re.I)
+PAGINATION_RX = re.compile(r"[?&](?:p|page|side|pg|sida)=(\d+)|/(?:page|side)[/-](\d+)", re.I)
+
+
+def _soup_links(html: str, page_url: str, host: str) -> list[tuple[str, str]]:
     soup = BeautifulSoup(html, "html.parser")
     out = []
     for a in soup.find_all("a", href=True):
         u = urljoin(page_url, a["href"]).split("#")[0]
-        if urlparse(u).netloc == host and not EXCLUDE.search(urlparse(u).path):
-            out.append(u)
-    return list(dict.fromkeys(out))
+        if urlparse(u).netloc.replace("www.", "") == host.replace("www.", ""):
+            out.append((u, a.get_text(" ", strip=True)[:80]))
+    return out
 
 
-def scan(client, retailer: dict, max_products: int = 400, db=None) -> Iterator[Product]:
+def discover_offer_pages(client, base: str, host: str, limit: int = 6) -> list[str]:
+    """Find tilbudssider ud fra forsidens links (url eller linktekst indeholder 'tilbud', 'udsalg' ...)."""
+    try:
+        html = client.get_text(base + "/")
+    except Exception:  # noqa: BLE001
+        return []
+    if not html:
+        return []
+    scored: dict[str, int] = {}
+    for u, text in _soup_links(html, base + "/", host):
+        path = urlparse(u).path + "?" + urlparse(u).query
+        if OFFER_SKIP.search(path) or OFFER_SKIP.search(text) or urlparse(u).path in ("", "/"):
+            continue
+        hit = (2 if OFFER_RX.search(text) else 0) + (1 if OFFER_RX.search(path) else 0)
+        if hit:
+            scored[u] = max(scored.get(u, 0), hit)
+    return [u for u, _ in sorted(scored.items(), key=lambda x: (-x[1], len(x[0])))][:limit]
+
+
+def crawl_offer_pages(client, pages: list[str], host: str, is_product, max_listing_pages: int = 15) -> list[str]:
+    """Henter tilbudssider inkl. 'side 2, 3 ...' og returnerer de produkt-URL'er, de linker til."""
+    queue, seen, products = list(dict.fromkeys(pages)), set(), []
+    while queue and len(seen) < max_listing_pages:
+        page = queue.pop(0)
+        if page in seen:
+            continue
+        seen.add(page)
+        try:
+            html = client.get_text(page)
+        except Exception:  # noqa: BLE001
+            continue
+        if not html:
+            continue
+        root = urlparse(page).path.rstrip("/")
+        for u, _ in _soup_links(html, page, host):
+            pu = urlparse(u)
+            if PAGINATION_RX.search(u) and pu.path.rstrip("/").startswith(root) and u not in seen:
+                queue.append(u)
+            elif is_product(u):
+                products.append(u)
+    return list(dict.fromkeys(products))
+
+
+def scan(client, retailer: dict, max_products: int = 400, db=None, background: int | None = None,
+         info: dict | None = None) -> Iterator[Product]:
+    """Henter først alle produkter fra tilbudssiderne, derefter op til `background` øvrige produktsider
+    (bruges som markedspris for de andre forhandleres tilbud)."""
+    info = info if info is not None else {}
     base = retailer["url"].rstrip("/")
     host = urlparse(base).netloc
     include = re.compile(retailer["product_url_pattern"], re.I) if retailer.get("product_url_pattern") else None
     urls = [u for u in sitemap_urls(client, base) if urlparse(u).netloc.endswith(host.replace("www.", ""))]
     urls = [u for u in urls if (include.search(u) if include else not EXCLUDE.search(urlparse(u).path))]
-    urls = [u for u in urls if urlparse(u).path not in ("", "/")]
-
-    # Tilbudssider først: produkter der linkes til fra forhandlerens tilbudsside(r)
-    priority: list[str] = []
-    for off in retailer.get("offer_urls") or []:
-        links = _links_from(client, urljoin(base + "/", off), host)
-        priority += [u for u in links if (include.search(u) if include else True)]
+    urls = [u for u in urls if urlparse(u).path not in ("", "/") and not OFFER_RX.search(urlparse(u).path)]
     known = set(urls)
-    priority = [u for u in priority if u in known or include] if known else priority
 
-    order = db.page_order(retailer["id"], priority, urls) if db else list(dict.fromkeys(priority + urls))
-    log.info("%s: %d produkt-URL'er i sitemap, henter op til %d", retailer["id"], len(urls), max_products)
-    fetched = 0
+    def is_product(u: str) -> bool:
+        if include:
+            return bool(include.search(u))
+        if known:
+            return u in known
+        return not EXCLUDE.search(urlparse(u).path) and not OFFER_RX.search(urlparse(u).path) and urlparse(u).path.count("/") >= 1
+
+    offer_pages = [urljoin(base + "/", o) for o in retailer.get("offer_urls") or []]
+    if not offer_pages or retailer.get("discover_offers", True):
+        offer_pages += discover_offer_pages(client, base, host)
+    offer_pages = list(dict.fromkeys(offer_pages))
+    offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []
+    info.update(offer_pages=offer_pages, offer_products=len(offer_products))
+    log.info("%s: %d tilbudssider, %d tilbudsprodukter, %d produkt-URL'er i sitemap",
+             retailer["id"], len(offer_pages), len(offer_products), len(urls))
+
+    offer_set = set(offer_products)
+    rest = db.page_order(retailer["id"], [], [u for u in urls if u not in offer_set]) if db else [u for u in urls if u not in offer_set]
+    bg = max_products if background is None else min(background, max_products)
+    order = offer_products[:max_products] + rest[:max(0, min(bg, max_products - len(offer_products)))]
     for u in order:
-        if fetched >= max_products:
-            break
-        fetched += 1
         try:
             r = client.get(u)
         except Blocked:
@@ -290,4 +345,5 @@ def scan(client, retailer: dict, max_products: int = 400, db=None) -> Iterator[P
         if db:
             db.mark_page(u, retailer["id"], p is not None, "ok")
         if p:
+            p.on_offer = u in offer_set or bool(p.before_price)
             yield p

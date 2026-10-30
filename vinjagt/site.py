@@ -33,6 +33,8 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     db_r = {r["id"]: r for r in db.retailers()}
     deal_count: dict[str, int] = {}
     for d in deals:
+        if not d.get("of"):
+            continue
         deal_count[d["r"]] = deal_count.get(d["r"], 0) + 1
     shops = []
     for r in retailers_cfg:
@@ -42,7 +44,8 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
             "enabled": r.get("enabled", True), "platform": x.get("platform") or r.get("platform"),
             "last_scan": _iso(x.get("last_scan")), "status": x.get("last_status") or ("deaktiveret" if not r.get("enabled", True) else "ikke scannet"),
             "products": x.get("products") or 0, "wines": x.get("wines") or 0, "deals": deal_count.get(r["id"], 0),
-            "error": x.get("error"),
+            "error": x.get("error"), "offer_products": x.get("offer_products") or 0,
+            "offer_pages": json.loads(x.get("offer_pages") or "[]"),
         })
 
     site = cfg["site_dir"]

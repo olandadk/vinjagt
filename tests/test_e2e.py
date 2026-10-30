@@ -42,6 +42,9 @@ def test_end_to_end(tmp_path):
         assert status["shop-woo"][0] == "woocommerce"
         assert status["shop-generisk"][0] == "generic"
         assert all(n > 10 for _, n in status.values()), status
+        offers = db.execute("SELECT offer_products, offer_pages FROM retailers WHERE id='shop-generisk'").fetchone()
+        n_before = sum(1 for w in fake_shops._GENERIC if w["before"])
+        assert offers[0] == n_before and "/tilbud" in offers[1], offers
         gin = db.execute("SELECT COUNT(*) FROM wines WHERE name LIKE '%Gin%'").fetchone()[0]
         assert gin == 0
 
@@ -59,6 +62,7 @@ def test_end_to_end(tmp_path):
         assert all(x["p6"] <= x["p1"] for x in deals)
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-woo")
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-generisk")
+        assert any(x["of"] for x in deals) and not all(x["of"] for x in deals)
         # "Før 999" fra relaterede produkter må ikke blive læst som førpris
         assert not any(x["bp"] == 999 for x in deals)
     finally:

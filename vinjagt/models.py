@@ -26,6 +26,7 @@ class Product:
     vintage: int | None = None
     volume_cl: float | None = None
     critic: list[dict] = field(default_factory=list)
+    on_offer: bool = False             # forhandleren markerer selv varen som tilbud
 
 
 @dataclass
@@ -47,6 +48,7 @@ class Wine:
     critic: list[dict]
     image: str | None
     gtin: str | None
+    on_offer: bool = False
 
 
 def normalize(p: Product) -> Wine | None:
@@ -84,4 +86,5 @@ def normalize(p: Product) -> Wine | None:
         before_price=round(before * factor, 2) if before and before > unit else None,
         before_kind=before_kind if before and before > unit else None,
         critic=critic, image=p.image, gtin=p.gtin,
+        on_offer=bool(p.on_offer or (before and before > unit)),
     )

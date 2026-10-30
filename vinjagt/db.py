@@ -36,6 +36,11 @@ class DB:
         self.c = sqlite3.connect(path, timeout=60, check_same_thread=False)
         self.c.row_factory = sqlite3.Row
         self.c.executescript(SCHEMA)
+        for table, col, typ in (("wines", "on_offer", "INTEGER DEFAULT 0"), ("retailers", "offer_pages", "TEXT"),
+                                ("retailers", "offer_products", "INTEGER DEFAULT 0")):
+            cols = {r[1] for r in self.c.execute(f"PRAGMA table_info({table})")}
+            if col not in cols:
+                self.c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
 
     def commit(self):
         self.c.commit()
@@ -54,9 +59,13 @@ class DB:
     def set_platform(self, rid: str, platform: str | None):
         self.c.execute("UPDATE retailers SET platform=? WHERE id=?", (platform, rid))
 
-    def finish_scan(self, rid: str, status: str, products: int, wines: int, error: str | None, duration: float):
-        self.c.execute("UPDATE retailers SET last_scan=?, last_status=?, products=?, wines=?, error=?, duration=? WHERE id=?",
-                       (time.time(), status, products, wines, error, duration, rid))
+    def finish_scan(self, rid: str, status: str, products: int, wines: int, error: str | None, duration: float,
+                    info: dict | None = None):
+        info = info or {}
+        self.c.execute("UPDATE retailers SET last_scan=?, last_status=?, products=?, wines=?, error=?, duration=?, "
+                       "offer_pages=?, offer_products=? WHERE id=?",
+                       (time.time(), status, products, wines, error, duration,
+                        json.dumps(info.get("offer_pages") or []), info.get("offer_products"), rid))
         self.commit()
 
     def retailers(self):
@@ -68,16 +77,16 @@ class DB:
         row = self.c.execute("SELECT id FROM wines WHERE url=?", (w.url,)).fetchone()
         vals = (w.retailer_id, w.name, w.producer, w.vintage, w.volume_cl, w.wine_type, w.country, int(w.in_stock),
                 w.price_1, w.price_6, w.before_price, w.before_kind, json.dumps(w.critic, ensure_ascii=False),
-                w.image, w.gtin, wine_key, now)
+                w.image, w.gtin, wine_key, int(w.on_offer), now)
         if row:
             wid = row["id"]
             self.c.execute("UPDATE wines SET retailer_id=?,name=?,producer=?,vintage=?,volume_cl=?,wine_type=?,country=?,"
                            "in_stock=?,price_1=?,price_6=?,before_price=?,before_kind=?,critic=?,image=?,gtin=?,wine_key=?,"
-                           "last_seen=? WHERE id=?", vals + (wid,))
+                           "on_offer=?,last_seen=? WHERE id=?", vals + (wid,))
         else:
             cur = self.c.execute("INSERT INTO wines(retailer_id,name,producer,vintage,volume_cl,wine_type,country,in_stock,"
-                                 "price_1,price_6,before_price,before_kind,critic,image,gtin,wine_key,last_seen,url,first_seen) "
-                                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", vals + (w.url, now))
+                                 "price_1,price_6,before_price,before_kind,critic,image,gtin,wine_key,on_offer,last_seen,url,first_seen) "
+                                 "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", vals + (w.url, now))
             wid = cur.lastrowid
         self.c.execute("INSERT OR REPLACE INTO price_history(wine_id,day,price_1,price_6,before_price) VALUES(?,?,?,?,?)",
                        (wid, date.today().isoformat(), w.price_1, w.price_6, w.before_price))

@@ -17,6 +17,7 @@ DEFAULTS = {
     "respect_robots": True,
     "max_products_api": 6000,
     "max_pages_generic": 350,
+    "background_pages": 100,
     "redetect_days": 14,
     "scoring": {"min_discount": 0.10, "min_value_points": 3.0, "min_vivino_ratings": 25},
     "ratings": {"vivino": {"enabled": False, "pages_per_band": 4, "every_days": 7}, "csv_dir": "ratings"},

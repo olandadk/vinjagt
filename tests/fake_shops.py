@@ -139,6 +139,16 @@ class Generic(BaseHTTPRequestHandler):
                     f"<p class='price'>{w['price']:.2f} kr.</p>{before}<p>6 fl. for {w['price'] * 6 * 0.88:.0f} kr</p>"
                     f"<p>{CRITICS.get(w['name'], '')}</p><div class='related'><p>Før 999 kr</p></div></body></html>")
             return self._send(html, "text/html")
+        if u.path == "/":
+            return self._send("<html><body><nav><a href='/tilbud'>Ugens tilbud</a><a href='/om-os'>Om os</a>"
+                              "<a href='/handelsbetingelser'>Betingelser</a></nav></body></html>", "text/html")
+        if u.path == "/tilbud":
+            offers = [p for p, w in items.items() if w["before"]]
+            page = int(parse_qs(u.query).get("page", ["1"])[0])
+            half = offers[:2] if page == 1 else offers[2:]
+            links = "".join(f"<a href='{p}'>vin</a>" for p in half)
+            nxt = "<a href='/tilbud?page=2'>Næste</a>" if page == 1 else ""
+            return self._send(f"<html><body><h1>Tilbud</h1>{links}{nxt}</body></html>", "text/html")
         if u.path == "/om-os":
             return self._send("<html><h1>Om os</h1></html>", "text/html")
         self.send_response(404); self.end_headers()

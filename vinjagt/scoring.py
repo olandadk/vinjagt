@@ -167,7 +167,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             "ch": {"r": cheapest["retailer_id"], "p": cheapest["price_1"], "u": cheapest["url"]} if cheapest else None,
             "ref": best_ref, "d": round(raw_disc * 100, 1), "de": round(best_disc * 100, 1),
             "q": q, "rt": ratings, "v": value, "s": score, "fl": flags,
-            "fs": w.get("first_seen"),
+            "fs": w.get("first_seen"), "of": bool(w.get("on_offer")),
         })
     deals.sort(key=lambda d: -d["s"])
     stats["med_vurdering"] = sum(1 for d in deals if d["q"] is not None)

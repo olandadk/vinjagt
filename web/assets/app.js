@@ -1,7 +1,7 @@
 (async () => {
   const $ = id => document.getElementById(id);
   const PAGE = 60;
-  const st = {q: "", sort: "s", country: "", shop: "", max: "", types: new Set(), basis: "1", rated: false, cheapest: false, multi: false, shown: PAGE};
+  const st = {q: "", sort: "s", country: "", shop: "", max: "", types: new Set(), basis: "1", own: true, rated: false, cheapest: false, multi: false, shown: PAGE};
 
   const [meta, deals, shops] = await Promise.all([
     V.header(), V.json("data/deals.json").catch(() => []), V.json("data/retailers.json").catch(() => []),
@@ -27,12 +27,13 @@
   const url = new URLSearchParams(location.hash.slice(1));
   for (const k of ["q", "sort", "country", "shop", "max", "basis"]) if (url.get(k)) st[k] = url.get(k);
   for (const k of ["rated", "cheapest", "multi"]) st[k] = url.get(k) === "1";
+  st.own = url.get("own") !== "0";
   (url.get("types") || "").split(",").filter(Boolean).forEach(t => st.types.add(t));
   const sync = () => {
     $("q").value = st.q; $("sort").value = st.sort; $("country").value = st.country; $("shop").value = st.shop; $("max").value = st.max;
     document.querySelectorAll("#types .chip").forEach(b => b.classList.toggle("on", st.types.has(b.dataset.t)));
     document.querySelectorAll("#basis button").forEach(b => b.classList.toggle("on", b.dataset.v === st.basis));
-    for (const k of ["rated", "cheapest", "multi"]) $(k).classList.toggle("on", st[k]);
+    for (const k of ["own", "rated", "cheapest", "multi"]) $(k).classList.toggle("on", st[k]);
   };
   const save = () => {
     const p = new URLSearchParams();
@@ -41,6 +42,7 @@
     if (st.basis !== "1") p.set("basis", st.basis);
     for (const k of ["rated", "cheapest", "multi"]) if (st[k]) p.set(k, "1");
     if (st.types.size) p.set("types", [...st.types].join(","));
+    if (!st.own) p.set("own", "0");
     history.replaceState(null, "", p.toString() ? "#" + p : location.pathname);
   };
 
@@ -64,6 +66,7 @@
       (!st.country || d.c === st.country) &&
       (!st.shop || d.r === st.shop) &&
       (!max || price(d) <= max) &&
+      (!st.own || d.of) &&
       (!st.rated || d.q != null) &&
       (!st.cheapest || d.fl.includes("billigst i DK")) &&
       (!st.multi || d.mn > 0) &&
@@ -81,7 +84,7 @@
       const title = r.own ? `Oplyst af forhandleren${r.n > 1 ? ` (${r.n} forhandlere)` : ""}` : `Ekstern kilde${r.m ? `, match ${Math.round(r.m * 100)} %` : ""}${r.yr ? "" : ", alle årgange"}`;
       return `<span class="tag" title="${title}">${r.u ? `<a href="${V.esc(r.u)}" target="_blank" rel="noopener">${label}</a>` : label}${r.own ? " *" : ""}</span>`;
     }).join("");
-    const flags = d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}">${V.esc(f)}</span>`).join("");
+    const flags = (d.of ? `<span class="tag good" title="Forhandleren har selv sat varen ned">forhandlertilbud</span>` : "") + d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}">${V.esc(f)}</span>`).join("");
     const was = d.bp ? `<div class="was">${d.bk === "vejledende" ? "Vejl." : "Før"} <s>${V.kr(d.bp)}</s></div>` : "";
     const mkt = d.m1 ? `<div class="was">Andre (${d.mn}): ${V.kr(d.m1)}</div>` : "";
     return `<article class="card">
@@ -122,7 +125,7 @@
     st.types.has(b.dataset.t) ? st.types.delete(b.dataset.t) : st.types.add(b.dataset.t); sync(); reset();
   });
   $("basis").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; st.basis = b.dataset.v; sync(); reset(); });
-  for (const k of ["rated", "cheapest", "multi"]) $(k).addEventListener("click", () => { st[k] = !st[k]; sync(); reset(); });
+  for (const k of ["own", "rated", "cheapest", "multi"]) $(k).addEventListener("click", () => { st[k] = !st[k]; sync(); reset(); });
   $("more").addEventListener("click", () => { st.shown += PAGE; render(); });
   sync(); render();
 })();

@@ -68,6 +68,7 @@ def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
                 qty_tiers=[t for t in tiers if price and t[1] <= price],
                 sku=v.get("sku"),
                 gtin=v.get("barcode") or None,
+                on_offer=bool(compare and price and compare > price),
             )
         if len(data["products"]) < 250:
             break

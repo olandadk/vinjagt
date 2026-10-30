@@ -71,7 +71,7 @@ table.shops td.num,table.shops th.num{text-align:right;font-variant-numeric:tabu
 .st{font-size:12px;padding:2px 8px;border-radius:999px;color:#fff;white-space:nowrap}
 .st.ok{background:var(--ok)}.st.fejl{background:var(--bad)}.st.other{background:var(--muted)}
 .err{color:var(--muted);font-size:12px;max-width:340px}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 16px}
+.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:0 0 16px}
 .summary div{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
 .summary b{display:block;font-size:22px}
 .summary span{font-size:12px;color:var(--muted)}

@@ -18,7 +18,7 @@
   <table class="shops">
     <thead><tr>
       <th data-k="name">Forhandler</th><th data-k="city" class="hide-m">Område</th><th data-k="platform" class="hide-m">Platform</th>
-      <th data-k="status">Status</th><th data-k="wines" class="num">Vine</th><th data-k="deals" class="num">Tilbud</th>
+      <th data-k="status">Status</th><th data-k="wines" class="num">Vine</th><th data-k="offer_products" class="num">På tilbud</th><th data-k="deals" class="num">Gode tilbud</th>
       <th data-k="last_scan" class="hide-m">Sidst scannet</th>
     </tr></thead>
     <tbody id="rows"></tbody>
@@ -35,7 +35,8 @@
   document.getElementById("sum").innerHTML = [
     [shops.filter(s => s.enabled).length, "forhandlere på listen"], [ok.length, "scannet uden fejl"],
     [shops.reduce((a, s) => a + s.wines, 0).toLocaleString("da-DK"), "vine fundet"],
-    [shops.reduce((a, s) => a + s.deals, 0).toLocaleString("da-DK"), "aktuelle tilbud"],
+    [shops.reduce((a, s) => a + (s.offer_products || 0), 0).toLocaleString("da-DK"), "vine på tilbud"],
+    [shops.reduce((a, s) => a + s.deals, 0).toLocaleString("da-DK"), "gode tilbud efter vurdering"],
   ].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
   let key = "name", dir = 1;
   const val = (s, k) => k === "status" ? (s.status === "ok" ? 0 : 1) + s.status : (s[k] ?? "");
@@ -51,11 +52,12 @@
       <td><span class="st ${s.status === "ok" ? "ok" : s.status === "fejl" ? "fejl" : "other"}">${V.esc(s.status)}</span>
         ${s.error ? `<div class="err">${V.esc(s.error)}</div>` : ""}</td>
       <td class="num">${s.wines.toLocaleString("da-DK")}</td>
+      <td class="num" title="${V.esc((s.offer_pages || []).join("\n") || "Ingen tilbudsside fundet")}">${(s.offer_products || 0).toLocaleString("da-DK")}</td>
       <td class="num"><a href="index.html#shop=${encodeURIComponent(s.id)}">${s.deals}</a></td>
       <td class="hide-m">${V.when(s.last_scan)}</td></tr>`).join("");
   }
   document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
-    dir = key === th.dataset.k ? -dir : (["wines", "deals"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();
+    dir = key === th.dataset.k ? -dir : (["wines", "deals", "offer_products"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();
   }));
   render();
 })();

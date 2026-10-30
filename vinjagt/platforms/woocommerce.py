@@ -65,6 +65,7 @@ def scan(client, retailer: dict, max_products: int = 5000) -> Iterator[Product]:
                 sku=p.get("sku") or None,
                 country=X.detect_country(country) if country else None,
                 vintage=X.parse_vintage(vintage) if vintage else None,
+                on_offer=bool(p.get("on_sale")) or bool(regular and price and regular > price),
             )
         page += 1
         if total_pages and page > total_pages:

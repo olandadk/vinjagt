@@ -8,6 +8,7 @@
   publish    skub den byggede side til git-remote
   serve      vis siden lokalt på http://<pi>:8080
   status     vis status for hver forhandler
+  offers     vis hvilke tilbudssider der findes hos hver forhandler
 """
 from __future__ import annotations
 
@@ -33,22 +34,24 @@ def _client(cfg) -> PoliteClient:
                         respect_robots=bool(cfg["respect_robots"]))
 
 
-def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple[dict, str | None, list, int, str | None, float]:
+def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     t0 = time.time()
     client = _client(cfg)
     try:
         try:  # hurtigt tjek af om shoppen overhovedet svarer
             client.s.head(r["url"], timeout=min(15, float(cfg["timeout"])), allow_redirects=True)
         except Exception as e:  # noqa: BLE001
-            return r, platform, [], 0, f"ikke tilgængelig ({type(e).__name__})", time.time() - t0
+            return r, platform, [], 0, f"ikke tilgængelig ({type(e).__name__})", time.time() - t0, {}
         if not platform:
             platform = detect(client, r["url"])
         if not platform:
-            return r, None, [], 0, "ingen understøttet platform/sitemap fundet", time.time() - t0
+            return r, None, [], 0, "ingen understøttet platform/sitemap fundet", time.time() - t0, {}
         mod = PLATFORMS[platform]
+        info: dict = {}
         if platform == "generic":
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
-            it = mod.scan(client, r, limit, db=db_for_pages)
+            bg = int(r.get("background_pages", cfg["background_pages"]))
+            it = mod.scan(client, r, limit, db=db_for_pages, background=bg, info=info)
         else:
             it = mod.scan(client, r, int(cfg["max_products_api"]))
         wines, n = [], 0
@@ -57,10 +60,11 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple[dict, s
             w = normalize(p)
             if w:
                 wines.append(w)
-        return r, platform, wines, n, None, time.time() - t0
+        info["offer_products"] = info.get("offer_products") or sum(1 for w in wines if w.on_offer)
+        return r, platform, wines, n, None, time.time() - t0, info
     except Exception as e:  # noqa: BLE001
         log.exception("%s fejlede", r["id"])
-        return r, platform, [], 0, f"{type(e).__name__}: {e}", time.time() - t0
+        return r, platform, [], 0, f"{type(e).__name__}: {e}", time.time() - t0, {}
 
 
 class _LockedDB:
@@ -96,16 +100,17 @@ def cmd_scan(cfg, db, only: set[str] | None = None, force_detect=False):
     with ThreadPoolExecutor(max_workers=int(cfg["workers"])) as ex:
         futs = [ex.submit(_scan_one, cfg, r, plat, _LockedDB(db, lock)) for r, plat in jobs]
         for f in as_completed(futs):
-            r, platform, wines, n, err, dur = f.result()
+            r, platform, wines, n, err, dur, info = f.result()
             with lock:
                 if platform:
                     db.set_platform(r["id"], platform)
                 for w in wines:
                     db.save_wine(w, wine_key(w.name, w.producer))
                 status = "ok" if not err and wines else ("fejl" if err else "ingen vine fundet")
-                db.finish_scan(r["id"], status, n, len(wines), err, dur)
+                db.finish_scan(r["id"], status, n, len(wines), err, dur, info)
             total += len(wines)
-            log.info("%-28s %-11s %5d produkter, %5d vine (%.0fs)%s", r["name"], platform or "-", n, len(wines), dur,
+            log.info("%-28s %-11s %5d produkter, %5d vine, %4d på tilbud (%.0fs)%s", r["name"], platform or "-", n,
+                     len(wines), info.get("offer_products") or 0, dur,
                      f"  FEJL: {err}" if err else "")
     log.info("Scanning færdig: %d vine i alt", total)
 
@@ -136,7 +141,23 @@ def cmd_ratings(cfg, db, force=False):
 def cmd_status(db):
     for r in db.retailers():
         ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(r["last_scan"])) if r["last_scan"] else "-"
-        print(f"{r['name']:30} {r['platform'] or '-':12} {r['last_status'] or '-':18} {r['wines'] or 0:6} vine  {ts}  {r['error'] or ''}")
+        print(f"{r['name']:26} {r['platform'] or '-':12} {r['last_status'] or '-':10} {r['wines'] or 0:5} vine "
+              f"{r['offer_products'] or 0:5} tilbud  {ts}  {r['error'] or ''}")
+
+
+def cmd_offers(cfg, only=None):
+    """Vis hvilke tilbudssider scanneren finder hos hver forhandler (uden at hente produkterne)."""
+    from urllib.parse import urlparse
+
+    from .platforms import generic
+    client = _client(cfg)
+    for r in C.retailers(cfg):
+        if only and r["id"] not in only:
+            continue
+        pages = list(r.get("offer_urls") or []) + generic.discover_offer_pages(client, r["url"], urlparse(r["url"]).netloc)
+        print(f"{r['name']}:")
+        for p in pages or ["  (ingen fundet – Shopify/WooCommerce-shops behøver ingen; ellers tilføj offer_urls i retailers.yaml)"]:
+            print(f"   {p}")
 
 
 def cmd_serve(cfg, port: int):
@@ -149,7 +170,7 @@ def cmd_serve(cfg, port: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="vinjagt", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status"])
+    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers"])
     ap.add_argument("--only", help="kommasepareret liste af forhandler-id'er")
     ap.add_argument("--config")
     ap.add_argument("--port", type=int, default=8080)
@@ -185,6 +206,8 @@ def main(argv=None):
             log.error("Udgivelse fejlede: %s", e)
     if a.command == "status":
         cmd_status(db)
+    if a.command == "offers":
+        cmd_offers(cfg, only)
 
 
 if __name__ == "__main__":
