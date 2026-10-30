@@ -37,6 +37,8 @@
   note: Samarbejder med Vinspecialisten
   offer_urls: [/]           # tilbuddene står på forsiden
   discover_offers: false
+  # vine ligger under vintypen, fx /hvidvin/new-zealand/marlborough/2022-ara-...
+  product_url_pattern: "/(roedvin|rodvin|hvidvin|rosevin|rose|mousserende|champagne|cava|prosecco|portvin|hedvin|dessertvin|orangevin|sherry|madeira)/[^?]+/[^?]+"
 
 - name: Laudrup Vin
   url: https://laudrup.dk
