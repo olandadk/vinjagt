@@ -68,6 +68,7 @@
 - name: Holte Vinlager
   url: https://www.holtevinlager.dk
   city: Holte
+  offer_urls: [/klassikere-til-spotpris]
 
 - name: Vin & Vin
   url: https://www.vinogvin.dk
