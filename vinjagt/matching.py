@@ -1,8 +1,9 @@
 """Genkend samme vin på tværs af forhandlere og eksterne kilder."""
 from __future__ import annotations
 
+import math
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from .extract import fold
 
@@ -84,17 +85,24 @@ def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
                 by_gtin[g] = wid
         blocks[(w.get("vintage") or 0, round(w.get("volume_cl") or 75), w.get("wine_type"))].append(
             (wid, tokens(w["name"], w.get("producer"))))
+    # Prefix-filtrering: to navne med lighed >= threshold deler mindst `need` ord (Jaccard: threshold·|x|,
+    # delmængde-reglen i similar(): (threshold-0.6)/0.4·|x|). Så er det nok at indeksere og slå op på de
+    # len-need+1 sjældneste ord – samme resultat, men vine der kun deler fx 'chateau' sammenlignes ikke.
+    ratio = min(threshold, max(0.0, (threshold - 0.6) / 0.4))
     for items in blocks.values():
+        df = Counter(t for _, tk in items for t in tk)
         index: dict[str, list[int]] = defaultdict(list)
         toks = dict(items)
         for wid, tk in items:
+            need = max(1, math.ceil(ratio * len(tk) - 1e-9))
+            prefix = sorted(tk, key=lambda t: (df[t], t))[:len(tk) - need + 1]
             cands = set()
-            for t in tk:
+            for t in prefix:
                 cands.update(index[t])
             for c in cands:
                 if similar(tk, toks[c]) >= threshold:
                     uf.union(c, wid)
-            for t in tk:
+            for t in prefix:
                 index[t].append(wid)
     return {w["id"]: uf.find(w["id"]) for w in wines}
 

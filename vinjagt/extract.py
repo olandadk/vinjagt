@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from functools import lru_cache
 from typing import Iterable
 
 # ---------------------------------------------------------------- priser
@@ -191,10 +192,20 @@ def fold(s: str) -> str:
     return "".join(c for c in s if not unicodedata.combining(c))
 
 
+@lru_cache(maxsize=None)
+def _word_pattern(w: str) -> str:
+    return " " + fold(w) + " "
+
+
+@lru_cache(maxsize=512)  # samme tekst slås op mod mange ordlister i træk (classify_type, detect_country ...)
+def _word_text(text: str) -> str:
+    return " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+
+
 def has_word(text: str, words: Iterable[str]) -> str | None:
-    t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+    t = _word_text(text)
     for w in words:
-        if " " + fold(w) + " " in t:
+        if _word_pattern(w) in t:
             return w
     return None
 
