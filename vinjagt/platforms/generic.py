@@ -159,6 +159,27 @@ def _in_related(el) -> bool:
 _OLD_CLASS = re.compile(r"old|before|compare|regular|was|strike|line-through|foer|for-pris|normal", re.I)
 
 
+def text_after_h1(html: str, limit: int = 4000) -> str:
+    """Teksten fra produktnavnet (<h1>) og frem – uden relaterede produkter, menu og footer."""
+    soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
+    h1 = soup.find("h1")
+    if not h1:
+        return ""
+    parts, size = [], 0
+    for el in h1.find_all_next(string=True):
+        if el.parent and el.parent.name in ("script", "style"):
+            continue
+        if _in_related(el):
+            break
+        t = el.strip()
+        if t:
+            parts.append(t)
+            size += len(t)
+            if size > limit:
+                break
+    return " ".join(parts)
+
+
 def parse_product_page(html: str, url: str, retailer_id: str) -> Product | None:
     soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
     nodes = _jsonld_products(soup)

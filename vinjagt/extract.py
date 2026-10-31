@@ -51,7 +51,7 @@ _QTY_PATTERNS = [
     # "Pris v. 6 stk. 89,95" / "Pris ved 6 fl: 89"
     (re.compile(r"pris\s+(?:ved|v\.)\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "unit"),
     # "6+ flasker 109,00" / "6 fl.: 89,95" / "12 flasker á 79" -> pr. flaske eller total (afgøres af størrelsen)
-    (re.compile(r"(?<![\d,.])(\d{1,2})\s*\+?\s*(?:stk\.?|fl\.?|flasker|flaske)\s*[:\-–]?\s*(?:á|a|à|kun)?\s*(?:kr\.?\s*)?" + _NUM, re.I), "auto"),
+    (re.compile(r"(?<![\d,.])(\d{1,2})\s*\+?\s*(?:stk\.?|fl\.?|flasker|flaske)\s*[:\-–]?\s*(?:á|a|à|kun)?\s*(?:(?:kr\.?|dkk)\s*)?" + _NUM, re.I), "auto"),
     # "Kassepris (6 fl.) 499" -> total
     (re.compile(r"kassepris\s*\(?\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*\)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "total"),
 ]
@@ -88,7 +88,7 @@ def parse_quantity_prices(text: str, unit_price: float | None = None) -> list[tu
     return sorted(best.items())
 
 
-_SINGLE_RX = re.compile(r"(?<![\d,.+])1\s*(?:stk\.?|fl\.?|flaske)(?!\w)\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I)
+_SINGLE_RX = re.compile(r"(?<![\d,.+])1\s*(?:stk\.?|fl\.?|flaske)(?!\w)\s*[:\-–]?\s*(?:(?:kr\.?|dkk)\s*)?" + _NUM, re.I)
 
 
 def parse_single_price(text: str) -> float | None:

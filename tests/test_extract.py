@@ -105,3 +105,10 @@ def test_jsonld_lowest_price_fixed_by_single_price():
     from vinjagt.models import normalize
     w = normalize(p)
     assert w.price_1 == 324.95 and w.price_6 == 109.0 and w.on_offer
+
+
+def test_dkk_prefixed_case_prices():
+    from vinjagt.platforms.generic import text_after_h1
+    t = "1 FLASKE DKK 150,00 Tilbudspris 6 FLASKER DKK 145,00 /fl. Spar DKK 5 pr. fl. 12 FLASKER DKK 145,00 /fl."
+    html = f"<html><body><h1>Barbera</h1><p>{t}</p><div class='related'>6 flasker 120</div></body></html>"
+    assert X.parse_quantity_prices(text_after_h1(html), 150.0) == [(6, 145.0), (12, 145.0)]

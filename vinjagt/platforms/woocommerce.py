@@ -6,6 +6,7 @@ from typing import Iterator
 from urllib.parse import urljoin, urlparse
 
 from .. import extract as X
+from . import generic
 from ..models import Product
 
 API = "/wp-json/wc/store/v1/products"
@@ -77,6 +78,7 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
     base = retailer["url"].rstrip("/")
     info = info if info is not None else {}
     in_offer = offer_ids(client, base, retailer, info)
+    enriched, enrich_limit = 0, int(retailer.get("enrich_pages", 300))
     home = info.pop("home_links", set())
     home_all = bool(retailer.get("offer_all_listed"))
     page, seen, total_pages = 1, 0, None
@@ -102,7 +104,7 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
             vintage = next((v for k, v in attrs.items() if k in ("årgang", "aargang", "vintage")), None)
             img = (p.get("images") or [{}])[0].get("src") if p.get("images") else None
             desc = (p.get("short_description") or "") + "\n" + (p.get("description") or "")
-            yield Product(
+            prod = Product(
                 retailer_id=retailer["id"],
                 url=p.get("permalink") or "",
                 name=X.strip_html(p.get("name") or ""),
@@ -122,6 +124,17 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
                           or (home_all and (urlparse(p.get("permalink") or "").netloc.replace("www.", "")
                                             + urlparse(p.get("permalink") or "").path).rstrip("/") in home)),
             )
+            # Mængdepriser (6/12 fl.) vises ofte kun på produktsiden – hent den for vine på tilbud
+            if prod.on_offer and prod.url and enriched < enrich_limit and not X.parse_quantity_prices(X.strip_html(desc), price):
+                enriched += 1
+                try:
+                    html = client.get_text(prod.url)
+                    tiers = X.parse_quantity_prices(generic.text_after_h1(html), price) if html and price else []
+                    if tiers:
+                        prod.qty_tiers = tiers
+                except Exception:  # noqa: BLE001
+                    pass
+            yield prod
         page += 1
         if total_pages and page > total_pages:
             break
