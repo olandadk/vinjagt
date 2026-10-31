@@ -123,9 +123,10 @@
 # vinafgift, moms og fragt ikke er med. Vises med flag på hjemmesiden.
 
 - name: Gute Weine
-  url: https://www.gute-weine.de
+  url: https://www.gute-weine.de/dk   # dansk udgave af butikken
   city: Tyskland
-  note: Tysk webshop – priser omregnet fra EUR, uden dansk afgift og fragt
-  currency: EUR
+  note: Tysk webshop med dansk udgave
+  currency: EUR             # bruges kun hvis siden ikke selv oplyser valuta (DKK i den danske udgave)
+  product_url_pattern: "/dk/[^?#]+"
   country: DE
   foreign: true
