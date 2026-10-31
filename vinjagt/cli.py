@@ -65,8 +65,10 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
         if not platform:
             return r, None, [], 0, "ingen understøttet platform/sitemap fundet", time.time() - t0, {}
         mod = PLATFORMS[platform]
-        if platform == "shopify" and float(cfg["request_delay"]) > 0:
-            client.delay = max(client.delay, 5.0)
+        if platform == "shopify":
+            client.retries = 1  # 429 håndteres i shopify-modulet; giv hurtigt op ved blokering
+            if float(cfg["request_delay"]) > 0:
+                client.delay = max(client.delay, 5.0)
         info: dict = {}
         if platform == "generic":
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
