@@ -19,6 +19,7 @@ DEFAULTS = {
     "max_pages_generic": 700,
     "background_pages": 400,
     "redetect_days": 14,
+    "exchange_rates": {"EUR": 7.46, "SEK": 0.66, "NOK": 0.63},  # til DKK (kronen er bundet til euroen)
     "scoring": {"min_discount": 0.10, "min_value_points": 3.0, "min_vivino_ratings": 25},
     "ratings": {"vivino": {"enabled": False, "pages_per_band": 4, "every_days": 7}, "csv_dir": "ratings"},
     "site": {"title": "Vinjagt", "subtitle": "Gode vintilbud hos danske webshops", "max_deals": 4000},

@@ -84,7 +84,8 @@
       const title = r.own ? `Oplyst af forhandleren${r.n > 1 ? ` (${r.n} forhandlere)` : ""}` : `Ekstern kilde${r.m ? `, match ${Math.round(r.m * 100)} %` : ""}${r.yr ? "" : ", alle årgange"}`;
       return `<span class="tag" title="${title}">${r.u ? `<a href="${V.esc(r.u)}" target="_blank" rel="noopener">${label}</a>` : label}${r.own ? " *" : ""}</span>`;
     }).join("");
-    const flags = (d.of ? `<span class="tag good" title="Forhandleren har selv sat varen ned">forhandlertilbud</span>` : "") + d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}">${V.esc(f)}</span>`).join("");
+    const fxTag = d.fx ? `<span class="tag warn" title="Udenlandsk webshop: pris omregnet til kroner, uden dansk vinafgift, moms-forskel og fragt">${V.esc(d.fx)}-shop · omregnet, uden dansk afgift</span>` : "";
+    const flags = fxTag + (d.of ? `<span class="tag good" title="Forhandleren har selv sat varen ned">forhandlertilbud</span>` : "") + d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}">${V.esc(f)}</span>`).join("");
     const was = d.bp ? `<div class="was">${d.bk === "vejledende" ? "Vejl." : "Før"} <s>${V.kr(d.bp)}</s></div>` : "";
     const mkt = d.m1 ? `<div class="was">Andre (${d.mn}): ${V.kr(d.m1)}</div>` : "";
     return `<article class="card">

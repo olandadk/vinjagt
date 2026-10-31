@@ -77,9 +77,18 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
         else:
             it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         wines, n = [], 0
+        rates = {k.upper(): float(v) for k, v in (cfg.get("exchange_rates") or {}).items()}
+        default_cur = (r.get("currency") or "DKK").upper()
         for p in it:
             n += 1
-            w = normalize(p)
+            cur = (p.currency or default_cur).upper()
+            if cur in ("DKK", "KR"):
+                fx = 1.0
+            elif cur in rates:
+                fx = rates[cur]
+            else:
+                continue  # ukendt valuta
+            w = normalize(p, fx)
             if w:
                 wines.append(w)
         info["offer_products"] = sum(1 for w in wines if w.on_offer)
@@ -338,7 +347,8 @@ def cmd_why(cfg, db, url: str):
         print("   NB: ikke set i de seneste 10 dage – tæller ikke med")
         return
     exp = {w["id"]: None}
-    evaluate(wines, group_wines(wines), db.all_history(), db.ext_ratings(), {}, cfg["scoring"], explain=exp)
+    evaluate(wines, group_wines(wines), db.all_history(), db.ext_ratings(),
+             {x["id"]: x for x in C.retailers(cfg)}, cfg["scoring"], explain=exp)
     e = exp[w["id"]]
     if not e:
         print("   ikke vurderet (ikke på lager eller ingen pris)")

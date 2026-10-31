@@ -11,6 +11,7 @@ max_products_api: 6000    # Shopify/WooCommerce: maks. produkter pr. shop
 max_pages_generic: 700    # øvrige shops: maks. produktsider pr. kørsel – tilbudsprodukter hentes altid først
 background_pages: 400     # ... heraf højst så mange almindelige produkter (finder skjulte tilbud og giver markedspriser)
 redetect_days: 14
+exchange_rates: {EUR: 7.46, SEK: 0.66, NOK: 0.63}   # omregning til DKK for udenlandske shops
 
 data_dir: data            # database og log
 site_dir: site            # den byggede hjemmeside

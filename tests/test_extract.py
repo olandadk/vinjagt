@@ -112,3 +112,16 @@ def test_dkk_prefixed_case_prices():
     t = "1 FLASKE DKK 150,00 Tilbudspris 6 FLASKER DKK 145,00 /fl. Spar DKK 5 pr. fl. 12 FLASKER DKK 145,00 /fl."
     html = f"<html><body><h1>Barbera</h1><p>{t}</p><div class='related'>6 flasker 120</div></body></html>"
     assert X.parse_quantity_prices(text_after_h1(html), 150.0) == [(6, 145.0), (12, 145.0)]
+
+
+def test_german_shop_parsing():
+    assert X.classify_type("2022 Spätburgunder trocken Rotwein") == "rød"
+    assert X.classify_type("Riesling Weißwein feinherb 2023") == "hvid"
+    assert X.classify_type("Winzersekt Brut") == "mousserende"
+    assert X.parse_before_price("statt 14,90 € jetzt 9,90 €", 9.90) == (14.90, "førpris")
+    assert X.parse_before_price("UVP 19,90 €", 12.90)[1] == "vejledende"
+    assert X.parse_quantity_prices("ab 6 Flaschen je 8,90 €", 9.90) == [(6, 8.9)]
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "2022 Spätburgunder trocken", 9.90, before_price=14.90, qty_tiers=[(6, 8.90)],
+                          description="statt 14,90 €"), fx=7.46)
+    assert w.price_1 == 73.85 and w.price_6 == 66.39 and w.before_price == 111.15

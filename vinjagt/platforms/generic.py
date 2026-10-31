@@ -121,7 +121,7 @@ def _offer_info(offers) -> tuple[float | None, bool, list[tuple[int, float]]]:
         if not isinstance(o, dict):
             continue
         cur = (o.get("priceCurrency") or "DKK").upper()
-        if cur not in ("DKK", "KR", ""):
+        if cur not in ("DKK", "KR", "", "EUR", "SEK", "NOK"):
             continue
         p = X.parse_price(o.get("price") or o.get("lowPrice"))
         specs = o.get("priceSpecification") or []
@@ -255,11 +255,17 @@ def parse_product_page(html: str, url: str, retailer_id: str) -> Product | None:
     if not tiers:
         tiers = X.parse_quantity_prices(window, price)
     crumbs = [a.get_text(" ", strip=True) for a in soup.select("nav.breadcrumb a, .breadcrumb a, .breadcrumbs a, [itemtype*=BreadcrumbList] [itemprop=name]")][:8]
+    currency = None
+    for n in nodes[:1]:
+        offers = n.get("offers")
+        o = offers if isinstance(offers, dict) else (offers[0] if isinstance(offers, list) and offers else {})
+        if isinstance(o, dict) and o.get("priceCurrency"):
+            currency = str(o["priceCurrency"]).upper().replace("KR", "DKK")
     return Product(
         retailer_id=retailer_id, url=url, name=name.strip(), price=price, before_price=before, before_kind=kind,
         producer=producer, categories=[c for c in cats + crumbs if c], description=(desc + "\n" + window)[:6000],
         in_stock=in_stock, image=urljoin(url, image) if isinstance(image, str) else None, qty_tiers=tiers,
-        gtin=str(gtin) if gtin else None,
+        gtin=str(gtin) if gtin else None, currency=currency,
     )
 
 
@@ -279,7 +285,7 @@ def _has_lxml() -> bool:
 
 OFFER_RX = re.compile(
     r"tilbud|udsalg|kampagne|nedsat|spar-|/spar\b|outlet|sale\b|/sale|black-?friday|black-?week|cyber|restsalg|"
-    r"lagersalg|ugens|maanedens|månedens|deals?\b|offers?\b|prisfald|skarpe-?priser|bundpris|kassetilbud|maengdepris|mængdepris|spotpris|nedsatte|prisbombe|super-?pris", re.I)
+    r"lagersalg|ugens|maanedens|månedens|deals?\b|offers?\b|angebot|sonderangebot|reduziert|schnaeppchen|schnäppchen|aktion|rabatt|prisfald|skarpe-?priser|bundpris|kassetilbud|maengdepris|mængdepris|spotpris|nedsatte|prisbombe|super-?pris", re.I)
 OFFER_SKIP = re.compile(r"betingelser|vilkaar|vilkår|nyhedsbrev|newsletter|gavekort|login|konto|kurv|cart|blog|cookie", re.I)
 PAGINATION_RX = re.compile(r"[?&](?:p|page|side|pg|sida)=(\d+)|/(?:page|side)[/-](\d+)", re.I)
 

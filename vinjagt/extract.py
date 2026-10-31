@@ -52,6 +52,8 @@ _QTY_PATTERNS = [
     (re.compile(r"pris\s+(?:ved|v\.)\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "unit"),
     # "6+ flasker 109,00" / "6 fl.: 89,95" / "12 flasker á 79" -> pr. flaske eller total (afgøres af størrelsen)
     (re.compile(r"(?<![\d,.])(\d{1,2})\s*\+?\s*(?:stk\.?|fl\.?|flasker|flaske)\s*[:\-–]?\s*(?:á|a|à|kun)?\s*(?:(?:kr\.?|dkk)\s*)?" + _NUM, re.I), "auto"),
+    # "ab 6 Flaschen je 9,90 €" / "ab 6 Flaschen: 9,90" (tysk)
+    (re.compile(r"ab\s+(\d{1,2})\s*(?:flaschen|fl\.?|stück|stk\.?)\s*[:\-–]?\s*(?:je|à|a)?\s*(?:€|eur)?\s*" + _NUM, re.I), "unit"),
     # "Kassepris (6 fl.) 499" -> total
     (re.compile(r"kassepris\s*\(?\s*(\d{1,2})\s*(?:stk\.?|fl\.?|flasker)?\s*\)?\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I), "total"),
 ]
@@ -109,7 +111,7 @@ def price_for_n(unit_price: float | None, tiers: Iterable[tuple[int, float]], n:
 
 
 _BEFORE_RX = re.compile(
-    r"(før\s*pris|førpris|normalpris|normal\s+pris|laveste\s+pris\s+(?:de\s+)?(?:sidste|seneste)\s+30\s+dage|før|vejl\.?\s*(?:udsalgs)?pris|vejledende\s+(?:udsalgs)?pris)\s*:?\s*(?:kr\.?\s*)?"
+    r"(før\s*pris|førpris|normalpris|normal\s+pris|laveste\s+pris\s+(?:de\s+)?(?:sidste|seneste)\s+30\s+dage|før|vejl\.?\s*(?:udsalgs)?pris|vejledende\s+(?:udsalgs)?pris|statt|bisher|uvp|unverbindliche\s+preisempfehlung)\s*:?\s*(?:kr\.?\s*)?"
     + _NUM,
     re.I,
 )
@@ -125,7 +127,7 @@ def parse_before_price(text: str, current: float | None) -> tuple[float | None, 
         v = _p(m.group(2))
         if not v or (current and (v <= current or v > current * 2.5)):
             continue
-        kind = "vejledende" if "vejl" in label else "førpris"
+        kind = "vejledende" if ("vejl" in label or "uvp" in label or "preisempf" in label) else "førpris"
         if best[0] is None or (kind == "førpris" and best[1] != "førpris"):
             best = (v, kind)
     return best
@@ -214,7 +216,8 @@ NON_WINE = [
     "likoer", "likør", "liqueur", "snaps", "akvavit", "aquavit", "brandy", "bitter", "absinth", "pastis", "ouzo",
     "oel", "øl", "beer", "ipa", "lager", "pilsner", "stout", "cider", "mjoed", "mjød", "sodavand", "tonic", "juice",
     "vand", "kaffe", "te", "chokolade", "oliven", "olivenolie", "eddike", "pasta", "salami", "skinke", "ost",
-    "glas", "vinglas", "karaffel", "dekanter", "proptraekker", "proptrækker", "vinkoeler", "vinkøler", "vinreol",
+    "glas", "vinglas", "weinglas", "likör", "bier", "geschenkgutschein", "gutschein", "probierpaket", "weinpaket",
+    "geschenkset", "präsent", "praesent", "karaffe", "korkenzieher", "kühler", "karaffel", "dekanter", "proptraekker", "proptrækker", "vinkoeler", "vinkøler", "vinreol",
     "vinkoeleskab", "vinkøleskab", "gavekort", "gaveaeske", "gaveæske", "gavekurv", "gavepose", "smagning",
     "vinsmagning", "arrangement", "billet", "kursus", "bog", "fragt", "pant", "trae kasse", "trækasse",
     "smagekasse", "vinpakke", "mixkasse", "blandet kasse", "abonnement", "vinklub", "alkoholfri", "alcohol free",
@@ -226,14 +229,14 @@ NON_WINE = [
 TYPES = ["rød", "hvid", "rosé", "mousserende", "dessert", "orange"]
 
 _EXPLICIT = [
-    ("mousserende", ["mousserende", "sparkling", "champagne", "cava", "prosecco", "cremant", "crémant", "franciacorta",
+    ("mousserende", ["mousserende", "sparkling", "schaumwein", "sekt", "winzersekt", "perlwein", "crémant de", "spumante", "champagne", "cava", "prosecco", "cremant", "crémant", "franciacorta",
                      "spumante", "sekt", "pet nat", "pét nat", "petnat", "pet-nat", "frizzante", "lambrusco", "boblevin", "bobler"]),
-    ("dessert", ["portvin", "port", "sherry", "madeira", "marsala", "sauternes", "tokaji", "tokaj", "dessertvin", "hedvin",
+    ("dessert", ["portvin", "port", "suesswein", "süßwein", "dessertwein", "likörwein", "sherry", "madeira", "marsala", "sauternes", "tokaji", "tokaj", "dessertvin", "hedvin",
                  "vin santo", "icewine", "ice wine", "eiswein", "banyuls", "maury", "pedro ximenez", "beerenauslese",
                  "trockenbeerenauslese", "vin doux naturel", "passito", "recioto", "late harvest", "moscatel de setubal", "barsac"]),
     ("orange", ["orangevin", "orange wine", "orange vin", "skin contact", "skinkontakt", "ramato", "amber wine"]),
-    ("rosé", ["rosé", "rose", "rosevin", "rosévin", "rosato", "rosado", "blush", "clairet"]),
-    ("hvid", ["hvidvin", "hvid", "white wine", "white", "blanc", "bianco", "blanco", "weisswein", "weiss", "branco"]),
+    ("rosé", ["rosé", "rose", "rosevin", "rosévin", "roséwein", "rosewein", "weissherbst", "weißherbst", "rosato", "rosado", "blush", "clairet"]),
+    ("hvid", ["hvidvin", "hvid", "white wine", "white", "blanc", "bianco", "blanco", "weisswein", "weißwein", "weiss", "weiß", "branco"]),
     ("rød", ["roedvin", "rødvin", "rød", "red wine", "red", "rouge", "rosso", "tinto", "rotwein", "rot"]),
 ]
 

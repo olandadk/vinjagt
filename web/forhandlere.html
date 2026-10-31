@@ -46,7 +46,7 @@
       return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "da")) * dir;
     });
     document.getElementById("rows").innerHTML = rows.map(s => `<tr>
-      <td><a href="${V.esc(s.url)}" target="_blank" rel="noopener"><b>${V.esc(s.name)}</b></a><br><span class="err">${V.esc(s.note || new URL(s.url).host)}</span></td>
+      <td><a href="${V.esc(s.url)}" target="_blank" rel="noopener"><b>${V.esc(s.name)}</b></a><br><span class="err">${V.esc(s.note || new URL(s.url).host)}</span>${s.foreign ? ` <span class="st other">${V.esc(s.currency)}</span>` : ""}</td>
       <td class="hide-m">${V.esc(s.city || "")}</td>
       <td class="hide-m">${V.esc(PLAT[s.platform] || s.platform || "–")}</td>
       <td><span class="st ${s.status === "ok" ? "ok" : s.status === "fejl" ? "fejl" : "other"}">${V.esc(s.status)}</span>

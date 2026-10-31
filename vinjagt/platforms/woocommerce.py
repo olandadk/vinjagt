@@ -119,6 +119,7 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
                 sku=p.get("sku") or None,
                 country=X.detect_country(country) if country else None,
                 vintage=X.parse_vintage(vintage) if vintage else None,
+                currency=(prices.get("currency_code") or "").upper() or None,
                 on_offer=(bool(p.get("on_sale")) or bool(regular and price and regular > price)
                           or p.get("id") in in_offer or X.has_offer_tag(cats)
                           or (home_all and (urlparse(p.get("permalink") or "").netloc.replace("www.", "")

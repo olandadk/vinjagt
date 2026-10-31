@@ -100,7 +100,10 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
     stats = defaultdict(int)
     for w in stock:
         gid = groups.get(w["id"], w["id"])
-        others = [m for m in members[gid] if m["retailer_id"] != w["retailer_id"]]
+        foreign = bool((retailers.get(w["retailer_id"]) or {}).get("foreign"))
+        # udenlandske priser bruges ikke som markedspris for danske tilbud (afgift, moms og fragt mangler)
+        others = [m for m in members[gid] if m["retailer_id"] != w["retailer_id"]
+                  and (foreign or not (retailers.get(m["retailer_id"]) or {}).get("foreign"))]
         others_by_shop: dict[str, dict] = {}
         for m in others:  # én pris pr. forhandler (laveste)
             if m["retailer_id"] not in others_by_shop or m["price_1"] < others_by_shop[m["retailer_id"]]["price_1"]:
@@ -178,6 +181,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             "ref": best_ref, "d": round(raw_disc * 100, 1), "de": round(best_disc * 100, 1),
             "q": q, "rt": ratings, "v": value, "s": score, "fl": flags,
             "fs": w.get("first_seen"), "of": bool(w.get("on_offer")),
+            "fx": (retailers.get(w["retailer_id"]) or {}).get("country") if foreign else None,
         })
     deals.sort(key=lambda d: -d["s"])
     stats["med_vurdering"] = sum(1 for d in deals if d["q"] is not None)

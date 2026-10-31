@@ -27,6 +27,7 @@ class Product:
     volume_cl: float | None = None
     critic: list[dict] = field(default_factory=list)
     on_offer: bool = False             # forhandleren markerer selv varen som tilbud
+    currency: str | None = None        # None = forhandlerens standardvaluta (DKK)
 
 
 @dataclass
@@ -51,10 +52,16 @@ class Wine:
     on_offer: bool = False
 
 
-def normalize(p: Product) -> Wine | None:
-    """Product -> Wine. Returnerer None hvis det ikke er en (enkelt) vin med pris."""
+def normalize(p: Product, fx: float = 1.0) -> Wine | None:
+    """Product -> Wine. Returnerer None hvis det ikke er en (enkelt) vin med pris.
+    fx: kurs til DKK, hvis prisen er i en anden valuta (fx 7,46 for EUR)."""
     if not p.price or not p.name:
         return None
+    if fx != 1.0:  # omregn alle priser til kroner
+        p.price = round(p.price * fx, 2)
+        p.before_price = round(p.before_price * fx, 2) if p.before_price else None
+        p.qty_tiers = [(q, round(v * fx, 2)) for q, v in p.qty_tiers]
+        # (priser i beskrivelsen står i fremmed valuta og frasorteres automatisk, da de er ~7x for lave)
     text = f"{p.name} {' '.join(p.categories)}"
     desc = X.strip_html(p.description)
     wtype = X.classify_type(p.name, p.categories, desc)
