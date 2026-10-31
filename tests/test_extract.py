@@ -91,3 +91,17 @@ def test_philipson_case_price():
     from vinjagt.models import Product, normalize
     w = normalize(Product("r", "u", "2021 Brunello di Montalcino Cordella", 324.95, description=t))
     assert w.price_6 == 109.0 and w.on_offer
+
+
+def test_jsonld_lowest_price_fixed_by_single_price():
+    from vinjagt.platforms.generic import parse_product_page
+    html = ("<html><head><script type='application/ld+json'>"
+            '{"@type":"Product","name":"2021 Brunello di Montalcino Cordella","brand":{"name":"Cordella"},'
+            '"offers":{"@type":"Offer","price":"109.00","priceCurrency":"DKK"}}</script></head><body>'
+            "<h1>2021 Brunello di Montalcino Cordella</h1><div>109,00 DKK <s>324,95</s> Stk. pris ved køb af 6+ fl.</div>"
+            "<div>1 flaske 324,95</div><div>6+ flasker 109,00 324,95 Spar 215,95 DKK pr. fl.</div></body></html>")
+    p = parse_product_page(html, "https://x.dk/p", "r")
+    assert p.price == 324.95 and (6, 109.0) in p.qty_tiers
+    from vinjagt.models import normalize
+    w = normalize(p)
+    assert w.price_1 == 324.95 and w.price_6 == 109.0 and w.on_offer

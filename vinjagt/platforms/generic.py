@@ -221,6 +221,16 @@ def parse_product_page(html: str, url: str, retailer_id: str) -> Product | None:
                 if v and price < v <= price * 2.5:
                     before, kind = v, "førpris"
                     break
+    # Strukturerede data angiver nogle gange kun den laveste pris (fx ved køb af 6).
+    # Står der en højere pris for "1 flaske" i prisboksen, er det den rigtige stykpris.
+    single = X.parse_single_price(window)
+    if single and price < single <= price * 5:
+        tiers = [t for t in X.parse_quantity_prices(window, single) if t[0] > 1] or [(6, price)]
+        if not any(abs(t[1] - price) <= max(1.0, price * 0.01) for t in tiers):
+            tiers.append((6, price))
+        price = single
+        if before and before <= price:
+            before, kind = None, None
     if not tiers:
         tiers = X.parse_quantity_prices(window, price)
     crumbs = [a.get_text(" ", strip=True) for a in soup.select("nav.breadcrumb a, .breadcrumb a, .breadcrumbs a, [itemtype*=BreadcrumbList] [itemprop=name]")][:8]

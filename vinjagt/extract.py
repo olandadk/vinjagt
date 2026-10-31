@@ -88,6 +88,15 @@ def parse_quantity_prices(text: str, unit_price: float | None = None) -> list[tu
     return sorted(best.items())
 
 
+_SINGLE_RX = re.compile(r"(?<![\d,.+])1\s*(?:stk\.?|fl\.?|flaske)(?!\w)\s*[:\-–]?\s*(?:kr\.?\s*)?" + _NUM, re.I)
+
+
+def parse_single_price(text: str) -> float | None:
+    """'1 flaske 324,95' / '1 stk.: 99,95 kr' -> pris for én flaske."""
+    m = _SINGLE_RX.search(text or "")
+    return _p(m.group(1)) if m else None
+
+
 def price_for_n(unit_price: float | None, tiers: Iterable[tuple[int, float]], n: int = 6) -> float | None:
     """Pris pr. flaske når man køber n flasker af samme vin."""
     if unit_price is None:
