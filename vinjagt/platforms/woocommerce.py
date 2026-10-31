@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from typing import Iterator
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from .. import extract as X
 from ..models import Product
@@ -40,8 +40,9 @@ def offer_ids(client, base: str, retailer: dict, info: dict) -> set[int]:
         except Exception:  # noqa: BLE001
             html = ""
         host = urlparse(base).netloc.replace("www.", "")
+        links = [urljoin(base + "/", h) for h in re.findall(r'href=["\']([^"\']+)["\']', html)]
         info["home_links"] = {(urlparse(h).netloc.replace("www.", "") + urlparse(h).path).rstrip("/")
-                              for h in re.findall(r'href=["\']([^"\']+)["\']', html) if host in h}
+                              for h in links if urlparse(h).netloc.replace("www.", "") == host}
         if info["home_links"]:
             info["offer_pages"] = [base + "/"]
     if not slugs:

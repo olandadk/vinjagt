@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import time
 from urllib.parse import urlparse
 from typing import Iterator
 
@@ -31,7 +32,22 @@ def _qty_from_variant(title: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-COMMON_OFFER_COLLECTIONS = ["tilbud", "alle-tilbud", "sale", "udsalg", "vintilbud", "kampagne", "outlet"]
+COMMON_OFFER_COLLECTIONS = ["tilbud", "sale", "udsalg"]
+
+
+class Throttled(Exception):
+    """Shopify bremser fortsat scanneren (HTTP 429)."""
+
+
+def _get_page(client, url: str):
+    """Hent en JSON-side; ved vedvarende 429 ventes 2 minutter og prøves igen to gange."""
+    for attempt in range(3):
+        data, r = client.get_json(url)
+        if r is None or r.status_code != 429:
+            return data, r
+        if attempt < 2:
+            time.sleep(120)
+    raise Throttled("Shopify bremser scanneren (HTTP 429) – prøver igen næste nat")
 
 
 def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
@@ -55,7 +71,9 @@ def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
         got = 0
         for page in range(1, 11):
             try:
-                data, _ = client.get_json(f"{base}{path}/products.json?limit=250&page={page}")
+                data, _ = _get_page(client, f"{base}{path}/products.json?limit=250&page={page}")
+            except Throttled:
+                raise
             except Exception:  # noqa: BLE001
                 data = None
             prods = (data or {}).get("products") or []
@@ -65,6 +83,8 @@ def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:
                 break
         if got:
             found.append(base + path)
+            if not retailer.get("offer_urls"):
+                break  # én fundet tilbudssamling er nok – spar kald
     info["offer_pages"] = found + info.pop("offer_pages_extra", [])
     return handles
 
@@ -77,7 +97,7 @@ def scan(client, retailer: dict, max_products: int = 5000, info: dict | None = N
     home_all = bool(retailer.get("offer_all_listed"))
     page, seen = 1, 0
     while seen < max_products:
-        data, resp = client.get_json(f"{base}/products.json?limit=250&page={page}")
+        data, resp = _get_page(client, f"{base}/products.json?limit=250&page={page}")
         if not data or not data.get("products"):
             break
         for p in data["products"]:

@@ -160,7 +160,8 @@ class Generic(BaseHTTPRequestHandler):
             links = "".join(f"<a href='{p}'>vin</a>" for p in half)
             nxt = "<a href='/tilbud?page=2'>Næste</a>" if page == 1 else ""
             menu = "<nav><a href='/vin/roedvin'>Rødvin</a><a href='/om-os'>Om os</a></nav>"
-            return self._send(f"<html><body>{menu}<h1>Tilbud</h1>{links}{nxt}</body></html>", "text/html")
+            return self._send(f"<html><body class='page-products page-with-filter'>{menu}<h1>Tilbud</h1>"
+                              f"<main><div class='products'>{links}</div></main>{nxt}</body></html>", "text/html")
         if u.path == "/vin/roedvin":
             return self._send("<html><h1>Rødvin</h1><p>Kategori</p></html>", "text/html")
         if u.path == "/om-os":

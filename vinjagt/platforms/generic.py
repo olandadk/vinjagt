@@ -270,6 +270,8 @@ CHROME_RX = re.compile(r"(^|[\s_-])(nav|navbar|navigation|menu|megamenu|mega-men
 def _in_chrome(a) -> bool:
     """Ligger linket i sidens menu, top, bund, filtre eller lignende (og ikke i selve indholdet)?"""
     for parent in a.parents:
+        if parent.name in ("body", "html", "main", "[document]"):
+            break  # klasser på <body> (fx Magentos 'page-with-filter') siger intet om linket
         if parent.name in ("nav", "header", "footer", "aside"):
             return True
         ident = " ".join(parent.get("class") or []) + " " + (parent.get("id") or "") + " " + (parent.get("role") or "")

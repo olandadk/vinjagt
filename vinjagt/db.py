@@ -148,9 +148,9 @@ class DB:
             p, n = stats.get(url_group(u), (0, 0))
             return (p + 1) / (n + 2)
 
-        def dead_group(u):  # mindst 8 forsøg og ingen produkter
+        def dead_group(u):  # mange forsøg og aldrig et produkt – ellers kommer de bare sidst i køen
             p, n = stats.get(url_group(u), (0, 0))
-            return n >= 8 and p == 0
+            return n >= 60 and p == 0
 
         pri = [u for u in dict.fromkeys(priority) if not skip(u)]
         pset = set(pri)

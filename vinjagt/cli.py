@@ -37,7 +37,20 @@ def _client(cfg) -> PoliteClient:
                         respect_robots=bool(cfg["respect_robots"]))
 
 
+import threading as _threading
+
+# Shopify bremser pr. afsender på tværs af alle butikker – scan én Shopify-butik ad gangen
+_SHOPIFY_LOCK = _threading.Lock()
+
+
 def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
+    if platform == "shopify":
+        with _SHOPIFY_LOCK:
+            return _scan_one_inner(cfg, r, platform, db_for_pages)
+    return _scan_one_inner(cfg, r, platform, db_for_pages)
+
+
+def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     t0 = time.time()
     client = _client(cfg)
     if r.get("request_delay"):
@@ -52,6 +65,8 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
         if not platform:
             return r, None, [], 0, "ingen understøttet platform/sitemap fundet", time.time() - t0, {}
         mod = PLATFORMS[platform]
+        if platform == "shopify" and float(cfg["request_delay"]) > 0:
+            client.delay = max(client.delay, 5.0)
         info: dict = {}
         if platform == "generic":
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
