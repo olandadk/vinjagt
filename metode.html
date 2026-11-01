@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sådan vurderes tilbud – Vinjagt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍷</text></svg>">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="title">Vinjagt<span id="subtitle"></span></h1>
+  <nav><a href="index.html">Tilbud</a><a href="forhandlere.html">Forhandlere</a><a href="kilder.html">Kvalitetskilder</a><a href="metode.html" class="on">Sådan vurderes</a></nav>
+</div></header>
+<main class="wrap">
+<article class="doc">
+<h2>Hvad er et tilbud?</h2>
+<p>En vin vises som tilbud, når prisen ligger mindst 10&nbsp;% under en troværdig referencepris – eller når vinen
+får markant flere kvalitetspoint, end vine til samme pris normalt gør. Alle priser er omregnet til en 75&nbsp;cl-flaske.</p>
+
+<p>Som standard vises kun <b>forhandlernes egne tilbud</b>: varer forhandleren selv har sat ned (med førpris) eller
+har på sin tilbudsside. Slår du filteret fra, vises også vine, der blot er markant billigere end hos de andre forhandlere.</p>
+<p>Tilbudssiderne findes automatisk via forsidens links (“Tilbud”, “Udsalg”, “Kampagne” …) og hentes hver nat – inkl. alle
+undersider. Derudover hentes et mindre antal almindelige produkter, så andre forhandleres tilbud kan sammenlignes med en markedspris.</p>
+
+<h2>Referencepriser – hvad prisen sammenlignes med</h2>
+<ol>
+  <li><b>Markedspris i Danmark.</b> Medianprisen for den samme vin (samme årgang og flaskestørrelse) hos de andre
+  scannede forhandlere. Det er den stærkeste reference, fordi den er målt uafhængigt af forhandleren selv.</li>
+  <li><b>Egen prishistorik.</b> Vinjagt gemmer prisen hver dag. Når der er mindst 14 dages historik, bruges
+  vinens medianpris de sidste 90 dage.</li>
+  <li><b>Forhandlerens førpris.</b> Efter prismærkningsbekendtgørelsens §&nbsp;9&nbsp;a skal en førpris være den laveste pris
+  de seneste 30 dage. Vi krydstjekker mod egen historik – har vinen faktisk været billigere for nylig, markeres
+  tilbuddet med <span class="tag warn">førpris ikke bekræftet</span>, og førprisen tæller kun lidt.
+  En <i>vejledende</i> pris vægtes halvt.</li>
+  <li><b>Ekstern markedspris</b> (fx Vivinos danske gennemsnitspris), hvis den kilde er slået til.</li>
+</ol>
+<p>Rabatten i procent er den største troværdige rabat, vægtet efter hvor meget referencen er til at stole på.
+For “ved køb af 6” sammenlignes med de andre forhandleres 6-flaskepris.</p>
+
+<h2>Kvalitet</h2>
+<p>Alle vurderinger omregnes til en fælles 100-point skala:</p>
+<ul>
+  <li><b>Internationale anmeldere</b> (Robert Parker, James Suckling, Decanter, Wine Spectator, Vinous, Falstaff …) – brugt som de er.</li>
+  <li><b>Danske medier</b> (Politiken, Berlingske, Børsen, Jyllands-Posten …): 6 stjerner = 95, 5 = 90, 4 = 85, 3 = 80.</li>
+  <li><b>Vivino</b> (hvis slået til): 4,0 = 90, 3,5 = 85. Vægtes efter antal stemmer; under 25 stemmer ignoreres.</li>
+  <li><b>Egne CSV-kilder</b>, fx anmeldelser du selv har samlet.</li>
+</ul>
+<p>Anmelderpoint, som forhandleren selv skriver på produktsiden, markeres med <b>*</b> og tæller mindre –
+medmindre flere forhandlere oplyser det samme.</p>
+<p>Se <a href="kilder.html">Kvalitetskilder</a> for en oversigt over de kilder, der aktuelt bruges, og hvor mange vine de vurderer.</p>
+
+<h2>Værdi for pengene</h2>
+<p>På tværs af alle vurderede vine beregnes, hvor mange point en vin typisk får til en given pris
+(point ≈ a + b·ln(pris)). “+3 p for prisen” betyder, at vinen scorer 3 point mere end vine til samme pris plejer.</p>
+
+<h2>Samlet score (0–100)</h2>
+<p>45&nbsp;% rabat (40&nbsp;% rabat giver fuld score) · 35&nbsp;% værdi for pengene · 20&nbsp;% absolut kvalitet (80–95 point).
+Vine uden vurdering kan stadig komme med, men får en forsigtig, lav kvalitetsandel.</p>
+
+<h2>Udenlandske webshops</h2>
+<p>Udenlandske shops (fx tyske) vises med et flag. Priserne er omregnet til kroner, men <b>uden dansk vinafgift,
+eventuel dansk moms og fragt</b>, som skal betales når vin sendes til Danmark. Prisen passer derfor kun, hvis du selv
+henter vinen. Udenlandske priser bruges ikke som markedspris for danske tilbud – men udenlandske tilbud sammenlignes
+med danske priser, så du kan se, hvornår det kan betale sig.</p>
+
+<h2>Begrænsninger</h2>
+<ul>
+  <li>Samme vin genkendes på navn, producent, årgang og evt. stregkode. Navne skrives forskelligt fra shop til shop,
+  så enkelte matches kan være forkerte eller mangle.</li>
+  <li>Mængderabatter læses fra varianter, strukturerede data eller tekst som “ved køb af 6 stk.” – ikke alle
+  shops viser dem på en måde, der kan aflæses.</li>
+  <li>Medlemspriser, rabatkoder og fragt indgår ikke.</li>
+</ul>
+
+<h2>God opførsel over for webshoppene</h2>
+<p>Scanneren identificerer sig, følger <code>robots.txt</code>, holder pause mellem kald, bruger shoppens offentlige
+produkt-API eller sitemap hvor muligt og henter kun et begrænset antal sider pr. kørsel.</p>
+</article>
+</main>
+<script src="assets/common.js"></script>
+<script>V.header()</script>
+</body>
+</html>

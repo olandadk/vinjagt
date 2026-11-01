@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forhandlere – Vinjagt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍷</text></svg>">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="title">Vinjagt<span id="subtitle"></span></h1>
+  <nav><a href="index.html">Tilbud</a><a href="forhandlere.html" class="on">Forhandlere</a><a href="kilder.html">Kvalitetskilder</a><a href="metode.html">Sådan vurderes</a></nav>
+</div></header>
+<main class="wrap">
+  <p class="meta">Danske vinforhandlere med webshop, som scannes. Klik på en kolonne for at sortere.</p>
+  <div class="summary" id="sum"></div>
+  <table class="shops">
+    <thead><tr>
+      <th data-k="name">Forhandler</th><th data-k="city" class="hide-m">Område</th><th data-k="platform" class="hide-m">Platform</th><th data-k="free_shipping_over" class="hide-m">Fragt</th>
+      <th data-k="status">Status</th><th data-k="wines" class="num">Vine</th><th data-k="offer_products" class="num">På tilbud</th><th data-k="deals" class="num">Gode tilbud</th>
+      <th data-k="last_scan" class="hide-m">Sidst scannet</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<footer>Mangler en forhandler? Tilføj den i <code>retailers.yaml</code> i repository'et.</footer>
+<script src="assets/common.js"></script>
+<script>
+(async () => {
+  await V.header();
+  const shops = await V.json("data/retailers.json").catch(() => []);
+  const PLAT = {shopify: "Shopify (API)", woocommerce: "WooCommerce (API)", generic: "Sitemap + schema.org"};
+  const ok = shops.filter(s => s.status === "ok");
+  document.getElementById("sum").innerHTML = [
+    [shops.filter(s => s.enabled).length, "forhandlere på listen"], [ok.length, "scannet uden fejl"],
+    [shops.reduce((a, s) => a + s.wines, 0).toLocaleString("da-DK"), "vine fundet"],
+    [shops.reduce((a, s) => a + (s.offer_products || 0), 0).toLocaleString("da-DK"), "vine på tilbud"],
+    [shops.reduce((a, s) => a + s.deals, 0).toLocaleString("da-DK"), "gode tilbud efter vurdering"],
+  ].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
+  let key = "name", dir = 1;
+  const val = (s, k) => k === "status" ? (s.status === "ok" ? 0 : 1) + s.status : (s[k] ?? "");
+  function render() {
+    const rows = [...shops].sort((a, b) => {
+      const x = val(a, key), y = val(b, key);
+      return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "da")) * dir;
+    });
+    document.getElementById("rows").innerHTML = rows.map(s => `<tr>
+      <td><a href="${V.esc(s.url)}" target="_blank" rel="noopener"><b>${V.esc(s.name)}</b></a><br><span class="err">${V.esc(s.note || new URL(s.url).host)}</span>${s.foreign ? ` <span class="st other">${V.esc(s.currency)}</span>` : ""}</td>
+      <td class="hide-m">${V.esc(s.city || "")}</td>
+      <td class="hide-m">${V.esc(PLAT[s.platform] || s.platform || "–")}</td>
+      <td class="hide-m">${[s.shipping != null ? V.kr(s.shipping) : "", s.free_shipping_over != null ? `fri over ${V.kr(s.free_shipping_over)}` : ""].filter(Boolean).join(", ") || "–"}</td>
+      <td><span class="st ${s.status === "ok" ? "ok" : s.status === "fejl" ? "fejl" : "other"}">${V.esc(s.status)}</span>
+        ${s.error ? `<div class="err">${V.esc(s.error)}</div>` : ""}</td>
+      <td class="num">${s.wines.toLocaleString("da-DK")}</td>
+      <td class="num" title="${V.esc((s.offer_pages || []).join("\n") || "Ingen tilbudsside fundet")}">${(s.offer_products || 0).toLocaleString("da-DK")}</td>
+      <td class="num"><a href="index.html#shop=${encodeURIComponent(s.id)}">${s.deals}</a></td>
+      <td class="hide-m">${V.when(s.last_scan)}</td></tr>`).join("");
+  }
+  document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
+    dir = key === th.dataset.k ? -dir : (["wines", "deals", "offer_products"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();
+  }));
+  render();
+})();
+</script>
+</body>
+</html>
