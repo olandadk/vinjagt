@@ -61,6 +61,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
 
     # --------------------------------------------------- kvalitet pr. vin
     quality: dict[int, tuple[float | None, list[dict]]] = {}
+    sources: dict[tuple[str, bool], dict] = {}
     for w in stock:
         grp = members[groups.get(w["id"], w["id"])]
         # anmelderpoint oplyst af forhandlere – hvis flere forhandlere oplyser det samme, stoler vi mere på det
@@ -69,11 +70,13 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             for c in json.loads(m.get("critic") or "[]"):
                 seen[(c["source"], c["score"], c["scale"])].add(m["retailer_id"])
         items, num, den = [], 0.0, 0.0
+        used: dict[tuple[str, bool], tuple[float, float]] = {}  # (kilde, oplyst af forhandler) -> (skala, point)
         for (src, score, scale), shops in seen.items():
             pts = to_points(score, scale)
             wgt = 0.9 if len(shops) >= 2 else 0.7
             items.append({"s": src, "v": f"{score}/{scale}" if scale != 100 else f"{score} p", "pt": round(pts, 1),
                           "own": True, "n": len(shops)})
+            used[(src, True)] = (scale, pts)
             num += wgt * pts
             den += wgt
         ext_price = None
@@ -87,11 +90,17 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
                 items.append({"s": r["source"], "v": f"{r['rating']:.1f}" if r["scale"] == 5 else f"{r['rating']:g}/{r['scale']:g}",
                               "pt": round(pts, 1), "n": cnt or None, "u": r.get("url"), "m": r.get("match"),
                               "yr": r.get("vintage") or None})
+                used[(r["source"], False)] = (r["scale"], pts)
                 num += wgt * pts
                 den += wgt
                 if r.get("price") and r["source"] == "Vivino":
                     ext_price = r["price"]
         quality[w["id"]] = (round(num / den, 1) if den else None, items, ext_price)
+        for key, (scale, pts) in used.items():  # til oversigten over kvalitetskilder
+            u = sources.setdefault(key, {"vine": 0, "pt": 0.0, "scales": set()})
+            u["vine"] += 1
+            u["pt"] += pts
+            u["scales"].add(scale)
 
     fit = _fit([(q[0], w["price_1"]) for w in stock if (q := quality[w["id"]])[0] is not None])
 
@@ -186,4 +195,6 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
     deals.sort(key=lambda d: -d["s"])
     stats["med_vurdering"] = sum(1 for d in deals if d["q"] is not None)
     stats["regression"] = {"a": round(fit[0], 2), "b": round(fit[1], 2)} if fit else None
+    stats["kilder"] = [{"s": s, "own": own, "vine": u["vine"], "pt": round(u["pt"] / u["vine"], 1),
+                        "skala": sorted(u["scales"])} for (s, own), u in sources.items()]
     return deals, dict(stats)

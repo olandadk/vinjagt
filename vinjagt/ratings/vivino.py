@@ -29,7 +29,9 @@ def _year(v) -> int:
         return 0
 
 
-def harvest(client, db, cfg: dict) -> int:
+def harvest(client, db, cfg: dict, info: dict | None = None) -> int:
+    """Henter vurderinger. `info` udfyldes med status (ok / blokeret / fejl) til oversigten over kvalitetskilder."""
+    info = info if info is not None else {}
     pages = int(cfg.get("pages_per_band", 4))
     saved = 0
     for type_id, wtype in TYPES.items():
@@ -44,8 +46,18 @@ def harvest(client, db, cfg: dict) -> int:
                     data, r = client.get_json(API, params=params)
                 except Exception as e:  # noqa: BLE001
                     log.warning("Vivino: %s", e)
+                    info.update(status="fejl", detail=type(e).__name__, saved=saved)
                     return saved
-                matches = ((data or {}).get("explore_vintage") or {}).get("matches") or []
+                if r.status_code != 200:  # fx 403 'Request blocked' fra Vivinos bot-beskyttelse – resten vil også fejle
+                    log.warning("Vivino: HTTP %s – Vivino afviser automatiske forespørgsler; stopper (%d vurderinger gemt)",
+                                r.status_code, saved)
+                    info.update(status="blokeret", detail=f"HTTP {r.status_code}", saved=saved)
+                    return saved
+                if data is None or "explore_vintage" not in data:
+                    log.warning("Vivino: uventet svar (ikke Vivinos JSON-format) – stopper (%d vurderinger gemt)", saved)
+                    info.update(status="fejl", detail="uventet svar", saved=saved)
+                    return saved
+                matches = (data.get("explore_vintage") or {}).get("matches") or []
                 if not matches:
                     break
                 for m in matches:
@@ -70,4 +82,5 @@ def harvest(client, db, cfg: dict) -> int:
                     saved += 1
                 db.commit()
     log.info("Vivino: %d vurderinger gemt", saved)
+    info.update(status="ok", detail=None, saved=saved)
     return saved

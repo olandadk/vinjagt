@@ -1,6 +1,7 @@
 """Bygger den statiske hjemmeside: kopierer web/ og skriver data/*.json."""
 from __future__ import annotations
 
+import glob
 import json
 import logging
 import os
@@ -49,6 +50,29 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
             "offer_pages": json.loads(x.get("offer_pages") or "[]"),
         })
 
+    # kvalitetskilder: hvor mange vine og tilbud hver kilde vurderer
+    in_deals: dict[tuple, int] = {}
+    for d in deals:
+        for r in {(r["s"], bool(r.get("own"))) for r in d["rt"]}:
+            in_deals[r] = in_deals.get(r, 0) + 1
+    sources = sorted(({**k, "tilbud": in_deals.get((k["s"], k["own"]), 0)} for k in stats.pop("kilder", [])),
+                     key=lambda k: (-k["vine"], k["s"]))
+    rcfg = cfg.get("ratings") or {}
+    csv_dir = rcfg.get("csv_dir") or ""
+    vivino_on = bool((rcfg.get("vivino") or {}).get("enabled"))
+    vivino_status = {"status": "slået fra"}
+    if vivino_on:
+        try:
+            with open(os.path.join(cfg["data_dir"], "vivino_status.json"), encoding="utf-8") as f:
+                st = json.load(f)
+            vivino_status = {"status": st.get("status"), "detail": st.get("detail"), "saved": st.get("saved"),
+                             "time": _iso(st.get("time"))}
+        except (OSError, ValueError):
+            vivino_status = {"status": "ikke hentet endnu"}
+    kilder = {"sources": sources, "vivino": vivino_on, "vivino_status": vivino_status,
+              "csv_files": len(glob.glob(os.path.join(csv_dir, "*.csv"))) if csv_dir else 0,
+              "min_vivino_ratings": int((cfg["scoring"] or {}).get("min_vivino_ratings", 25))}
+
     site = cfg["site_dir"]
     web = os.path.join(ROOT, "web")
     os.makedirs(site, exist_ok=True)
@@ -62,6 +86,7 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     _dump(os.path.join(site, "data", "deals.json"), deals)
     _dump(os.path.join(site, "data", "retailers.json"), shops)
     _dump(os.path.join(site, "data", "meta.json"), meta)
+    _dump(os.path.join(site, "data", "kilder.json"), kilder)
     log.info("Side bygget: %d tilbud ud af %d vine på %.1fs", len(deals), stats.get("vine", 0), time.time() - t0)
     return meta
 

@@ -68,6 +68,11 @@ def test_end_to_end(tmp_path):
         assert d["mn"] >= 1 and d["m1"]  # matchet på tværs af shops
         assert any(r["s"] == "James Suckling" for r in d["rt"])
         assert any(r["s"] == "Politiken" for x in deals if "Chianti" in x["n"] for r in x["rt"])
+        kilder = json.loads((site / "data" / "kilder.json").read_text())
+        src = {(k["s"], k["own"]): k for k in kilder["sources"]}
+        assert src[("James Suckling", True)]["vine"] >= 1 and src[("Politiken", False)]["tilbud"] >= 1, src
+        assert kilder["csv_files"] == 1 and kilder["vivino"] is False and kilder["vivino_status"]["status"] == "slået fra"
+        assert (site / "kilder.html").exists() and "stats" in json.loads((site / "data" / "meta.json").read_text())
         assert all(x["p6"] <= x["p1"] for x in deals)
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-woo")
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-generisk")

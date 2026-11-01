@@ -5,6 +5,7 @@ og viser resultatet som en hjemmeside med sortering og filtre. Kører på en Ras
 
 - **Tilbud** – sortér efter samlet score, rabat, pris ved køb af 1 eller 6 flasker, kvalitet, værdi for pengene, navn eller nyeste fund. Filtrér på vintype, land, forhandler, maks. pris og fritekst. Filtre gemmes i URL'en, så de kan bogmærkes.
 - **Forhandlere** – oversigt over de webshops, der scannes, med platform, status, antal vine og tilbud.
+- **Kvalitetskilder** – oversigt over de vurderinger (anmeldere, medier, Vivino, egne CSV), der bruges, og hvor mange vine hver kilde vurderer.
 - **Sådan vurderes** – forklaring af metoden.
 
 ## Sådan virker det

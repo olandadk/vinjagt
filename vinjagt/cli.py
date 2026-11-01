@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -169,8 +170,11 @@ def cmd_ratings(cfg, db, force=False):
         stamp = os.path.join(cfg["data_dir"], ".vivino_last")
         last = os.path.getmtime(stamp) if os.path.exists(stamp) else 0
         if force or time.time() - last > float(v.get("every_days", 7)) * 86400:
-            vivino.harvest(_client(cfg), db, v)
+            info: dict = {}
+            vivino.harvest(_client(cfg), db, v, info=info)
             open(stamp, "w").close()
+            with open(os.path.join(cfg["data_dir"], "vivino_status.json"), "w", encoding="utf-8") as f:
+                json.dump({**info, "time": time.time()}, f)
 
 
 def cmd_status(cfg, db):
