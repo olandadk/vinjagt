@@ -94,6 +94,22 @@ så repository'et ikke vokser med daglige datafiler.
 
 Vil du ikke udgive offentligt, så lad `publish.enabled: false` stå – siden er stadig tilgængelig på dit lokalnet.
 
+## Prisalarm på mobilen
+
+Vinjagt kan sende en besked via [ntfy](https://ntfy.sh) (gratis app til iPhone/Android, ingen konto), når der
+dukker nye tilbud op: tilbud med høj samlet score og nye tilbud på vine, du holder øje med. Udfyld `alerts` i
+`config.yaml` – vælg et emnenavn, der er svært at gætte, og abonnér på det i appen:
+
+```yaml
+alerts:
+  ntfy_topic: vinjagt-k7q2xm9
+  min_score: 80
+  watch:
+    - {q: "barolo", max: 250}      # nye tilbud på Barolo til højst 250 kr.
+```
+
+Samme tilbud meldes kun én gang. På hjemmesiden kan man desuden markere vine som ♥ favoritter (gemmes i browseren).
+
 ## Forhandlere
 
 Listen står i `retailers.yaml` (23 danske vinforhandlere med webshop). Tilføj en ny sådan:
@@ -103,6 +119,8 @@ Listen står i `retailers.yaml` (23 danske vinforhandlere med webshop). Tilføj 
   url: https://www.minvinhandel.dk
   city: Aarhus
   offer_urls: [/tilbud]          # valgfri – produkter linket herfra hentes først
+  shipping: 59                   # valgfri – fragt i kr., vises på siden
+  free_shipping_over: 1000       # valgfri – gratis fragt ved køb over dette beløb
 ```
 
 Kør derefter `python3 -m vinjagt detect`. Hvis en shop ikke kan scannes (ingen API, intet sitemap eller ingen

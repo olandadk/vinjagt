@@ -125,3 +125,28 @@ def test_german_shop_parsing():
     w = normalize(Product("r", "u", "2022 Spätburgunder trocken", 9.90, before_price=14.90, qty_tiers=[(6, 8.90)],
                           description="statt 14,90 €"), fx=7.46)
     assert w.price_1 == 73.85 and w.price_6 == 66.39 and w.before_price == 111.15
+
+
+def test_vintage_punctuation_and_large_bottles():
+    assert X.parse_vintage("Chianti Classico 2019.") == 2019
+    assert X.parse_vintage("Barolo 2016, Piemonte") == 2016
+    assert X.parse_vintage("Rioja 2018 årgang") == 2018
+    assert X.parse_vintage("Pris 2019,95 kr") is None  # pris, ikke årgang
+    assert X.parse_volume_cl("Bollinger Double Magnum") == 300
+    assert X.parse_volume_cl("Barolo Magnum") == 150
+    assert X.classify_type("Moët & Chandon Brut Impérial") == "mousserende"
+
+
+def test_history_summary(tmp_path):
+    import time
+    from datetime import date, timedelta
+    from vinjagt.db import DB
+    db = DB(str(tmp_path / "h.sqlite"))
+    db.c.execute("INSERT INTO wines(id,url,price_1,last_seen) VALUES(1,'u',100,?)", (time.time(),))
+    for d in range(40):  # 130 kr indtil for 5 dage siden, derefter 100 kr
+        db.c.execute("INSERT INTO price_history VALUES(1,?,?,NULL,NULL)",
+                     ((date.today() - timedelta(days=d)).isoformat(), 100.0 if d < 5 else 130.0))
+    h = db.history_summary()[1]
+    assert h["n"] == 39 and h["med90"] == 130 and h["min30"] == 100 and h["lo90"] == 100
+    assert h["since"] == (date.today() - timedelta(days=4)).isoformat()
+    assert h["weeks"][-1] == 100 and h["weeks"][-6] == 130 and h["weeks"][0] is None

@@ -5,6 +5,7 @@ import json
 import sqlite3
 import time
 from datetime import date
+from statistics import median
 
 from .models import Wine
 
@@ -104,21 +105,75 @@ class DB:
                        (wid, date.today().isoformat(), w.price_1, w.price_6, w.before_price))
         return wid
 
-    def current_wines(self, max_age_days: float = 10):
-        """Vine set inden for de sidste `max_age_days` dage."""
+    def current_wines(self, max_age_days: float = 10, max_products_api: int | None = None):
+        """Vine set inden for de sidste `max_age_days` dage.
+
+        Shopify/WooCommerce-shops hentes helt hver nat. Gik seneste scanning godt og nåede hele kataloget,
+        er en vin, der ikke kom med, udsolgt eller fjernet – så kræves det, at den blev set i den scanning.
+        Generiske shops roteres over flere nætter og beholder de `max_age_days` dage."""
         cutoff = time.time() - max_age_days * 86400
-        return [dict(r) for r in self.c.execute("SELECT * FROM wines WHERE last_seen>=?", (cutoff,))]
+        full_scan: dict[str, float] = {}
+        for r in self.c.execute("SELECT id, platform, last_scan, duration, last_status, products FROM retailers"):
+            if (r["platform"] in ("shopify", "woocommerce") and r["last_status"] == "ok" and r["last_scan"]
+                    and (max_products_api is None or (r["products"] or 0) < max_products_api)):
+                full_scan[r["id"]] = r["last_scan"] - (r["duration"] or 0) - 300
+        return [dict(r) for r in self.c.execute("SELECT * FROM wines WHERE last_seen>=?", (cutoff,))
+                if r["last_seen"] >= full_scan.get(r["retailer_id"], 0)]
 
     def history(self, wine_id: int, days: int = 120):
         return [dict(r) for r in self.c.execute(
             "SELECT day, price_1, price_6, before_price FROM price_history WHERE wine_id=? "
             "AND day >= date('now', ?) ORDER BY day", (wine_id, f"-{days} days"))]
 
-    def all_history(self, days: int = 120) -> dict[int, list[dict]]:
-        out: dict[int, list[dict]] = {}
-        for r in self.c.execute("SELECT wine_id, day, price_1, price_6, before_price FROM price_history "
-                                "WHERE day >= date('now', ?) ORDER BY day", (f"-{days} days",)):
-            out.setdefault(r["wine_id"], []).append(dict(r))
+    def history_summary(self, max_age_days: float = 10, days: int = 120) -> dict[int, dict]:
+        """Prishistorik opsummeret pr. vin (kun vine set inden for `max_age_days`).
+
+        Rækkerne læses én vin ad gangen i (wine_id, day)-orden, så hukommelsen ikke vokser med historikken
+        – at holde alle rækker i hukommelsen kostede ca. 45 MB pr. 1.000 vine.
+          n      dage med pris før i dag          med90  median af de seneste 90 af dem
+          n30    heraf dage inden for 30 dage      min30  laveste pris inden for 30 dage
+          lo90   laveste pris de sidste 90 dage (inkl. i dag)
+          since  første dag i den nuværende periode med (højst) den nuværende pris
+          weeks  laveste pris pr. uge, 13 uger, ældste først (None = ingen data)
+        """
+        today = date.today()
+        cutoff = time.time() - max_age_days * 86400
+        out: dict[int, dict] = {}
+        cur_id, rows, cur_price = None, [], None
+
+        def flush():
+            if cur_id is None:
+                return
+            before = [(d, p) for d, p in rows if d < today]
+            last90 = [p for _, p in before[-90:]]
+            recent = [p for d, p in before if (today - d).days <= 30]
+            weeks: list[float | None] = [None] * 13
+            since = None
+            for d, p in rows:
+                w = (today - d).days // 7
+                if w < 13:
+                    i = 12 - w
+                    weeks[i] = p if weeks[i] is None else min(weeks[i], p)
+                if cur_price and p > cur_price * 1.005:
+                    since = None  # prisen var højere – perioden med den nuværende pris starter senere
+                elif since is None:
+                    since = d
+            out[cur_id] = {
+                "n": len(before), "med90": median(last90) if last90 else None,
+                "n30": len(recent), "min30": min(recent) if recent else None,
+                "lo90": min((p for d, p in rows if (today - d).days <= 90), default=None),
+                "since": (since or today).isoformat(), "weeks": weeks,
+            }
+
+        for wid, day, p, cur in self.c.execute(
+                "SELECT h.wine_id, h.day, h.price_1, w.price_1 FROM price_history h JOIN wines w ON w.id = h.wine_id "
+                "WHERE w.last_seen >= ? AND h.day >= date('now', ?) AND h.price_1 > 0 ORDER BY h.wine_id, h.day",
+                (cutoff, f"-{days} days")):
+            if wid != cur_id:
+                flush()
+                cur_id, rows, cur_price = wid, [], cur
+            rows.append((date.fromisoformat(day), p))
+        flush()
         return out
 
     def set_wine_key(self, wid: int, key: str):

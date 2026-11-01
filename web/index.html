@@ -14,8 +14,9 @@
 </div></header>
 <main class="wrap">
   <p class="meta" id="meta">Indlæser …</p>
-  <section class="filters" aria-label="Filtre">
+  <section class="filters" id="filters" aria-label="Filtre">
     <label class="f-search">Søg<input id="q" type="search" placeholder="Navn, producent, drue, område …"></label>
+    <button class="ftoggle" id="ftoggle" type="button" aria-expanded="false" aria-controls="filters">Filtre</button>
     <label class="f-sort">Sortér efter
       <select id="sort">
         <option value="s">Bedste tilbud (samlet score)</option>
@@ -25,20 +26,29 @@
         <option value="q">Højeste kvalitet</option>
         <option value="v">Bedste værdi for pengene</option>
         <option value="n">Navn A–Å</option>
-        <option value="fs">Nyeste fund</option>
+        <option value="fs">Nyeste tilbud</option>
       </select></label>
     <label class="f-country">Land<select id="country"><option value="">Alle lande</option></select></label>
     <label class="f-shop">Forhandler<select id="shop"><option value="">Alle forhandlere</option></select></label>
-    <label class="f-max">Maks. kr.<input id="max" type="number" min="0" step="10" placeholder="–"></label>
+    <div class="f-price"><span>Pris pr. flaske (kr.)</span>
+      <div><input id="min" type="number" min="0" step="10" placeholder="fra" aria-label="Mindste pris">
+      <input id="max" type="number" min="0" step="10" placeholder="til" aria-label="Højeste pris"></div></div>
     <div class="chips" id="types"></div>
     <div class="chips">
-      <span style="font-size:12px;color:var(--muted)">Pris pr. flaske ved køb af</span>
+      <span class="lbl">Pris pr. flaske ved køb af</span>
       <span class="seg" id="basis"><button data-v="1" class="on">1 flaske</button><button data-v="6">6 flasker</button></span>
       <span class="sep"></span>
+      <label class="inline">Kvalitet <select id="minq"><option value="">alle</option><option value="85">85+ point</option>
+        <option value="88">88+ point</option><option value="90">90+ point</option><option value="92">92+ point</option></select></label>
+    </div>
+    <div class="chips">
       <button class="chip" id="own" title="Kun varer forhandleren selv har sat ned eller lagt på sin tilbudsside">Kun forhandlernes egne tilbud</button>
       <button class="chip" id="rated">Kun med kvalitetsvurdering</button>
       <button class="chip" id="cheapest">Kun billigst i DK</button>
       <button class="chip" id="multi">Kun vine solgt af flere</button>
+      <button class="chip" id="fresh" title="Tilbud der er startet inden for det seneste døgn">Kun nye tilbud</button>
+      <button class="chip" id="favs" title="Vine du har markeret med ♥ (gemmes i denne browser)">♥ Mine favoritter <small id="favn"></small></button>
+      <button class="reset" id="reset" type="button" hidden>Nulstil filtre</button>
     </div>
   </section>
   <p class="count" id="count"></p>

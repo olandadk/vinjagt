@@ -162,7 +162,10 @@ _OLD_CLASS = re.compile(r"old|before|compare|regular|was|strike|line-through|foe
 def text_after_h1(html: str, limit: int = 4000) -> str:
     """Teksten fra produktnavnet (<h1>) og frem – uden relaterede produkter, menu og footer."""
     soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
-    h1 = soup.find("h1")
+    return _text_after(soup.find("h1"), limit)
+
+
+def _text_after(h1, limit: int = 4000) -> str:
     if not h1:
         return ""
     parts, size = [], 0
@@ -216,21 +219,7 @@ def parse_product_page(html: str, url: str, retailer_id: str) -> Product | None:
 
     # Tekst omkring produktet (fra <h1> og frem) – undgår priser fra "relaterede produkter".
     h1 = soup.find("h1")
-    window = ""
-    if h1:
-        parts, size = [], 0
-        for el in h1.find_all_next(string=True):
-            if el.parent and el.parent.name in ("script", "style"):
-                continue
-            if _in_related(el):
-                break
-            t = el.strip()
-            if t:
-                parts.append(t)
-                size += len(t)
-                if size > 4000:
-                    break
-        window = " ".join(parts)
+    window = _text_after(h1)
     before, kind = X.parse_before_price(window, price)
     if not before and h1:
         for el in h1.find_all_next(["del", "s", "span", "div"], limit=250):
@@ -307,16 +296,19 @@ def _in_chrome(a) -> bool:
     return False
 
 
-def _soup_links(html: str, page_url: str, host: str, content_only: bool = False) -> list[tuple[str, str]]:
-    soup = BeautifulSoup(html, "html.parser")
+def _all_links(html: str, page_url: str, host: str) -> list[tuple[str, str, bool]]:
+    """(url, linktekst, står i menu/top/bund) for alle links til samme vært – siden parses kun én gang."""
+    soup = BeautifulSoup(html, "lxml") if _has_lxml() else BeautifulSoup(html, "html.parser")
     out = []
     for a in soup.find_all("a", href=True):
-        if content_only and _in_chrome(a):
-            continue
         u = urljoin(page_url, a["href"]).split("#")[0]
         if urlparse(u).netloc.replace("www.", "") == host.replace("www.", ""):
-            out.append((u, a.get_text(" ", strip=True)[:80]))
+            out.append((u, a.get_text(" ", strip=True)[:80], _in_chrome(a)))
     return out
+
+
+def _soup_links(html: str, page_url: str, host: str, content_only: bool = False) -> list[tuple[str, str]]:
+    return [(u, t) for u, t, chrome in _all_links(html, page_url, host) if not (content_only and chrome)]
 
 
 # Ligner en produktside – ikke en tilbudsoversigt
@@ -341,13 +333,16 @@ def _rank_offer(u: str, text: str) -> int:
     return score
 
 
-def discover_offer_pages(client, base: str, host: str, limit: int = 6, sitemap_urls_: list[str] | None = None) -> list[str]:
+def discover_offer_pages(client, base: str, host: str, limit: int = 6, sitemap_urls_: list[str] | None = None,
+                         home_html: str | None = None) -> list[str]:
     """Find tilbudssider: 1) links på forsiden, 2) tilbuds-URL'er i sitemap, 3) almindelige adresser som /tilbud."""
     scored: dict[str, int] = {}
-    try:
-        html = client.get_text(base + "/")
-    except Exception:  # noqa: BLE001
-        html = None
+    html = home_html
+    if html is None:
+        try:
+            html = client.get_text(base + "/")
+        except Exception:  # noqa: BLE001
+            html = None
     for u, text in (_soup_links(html, base + "/", host) if html else []):
         s = _rank_offer(u, text)
         if s > 0:
@@ -393,12 +388,11 @@ def crawl_offer_pages(client, pages: list[str], host: str, is_product, max_listi
         if not html:
             continue
         root = urlparse(page).path.rstrip("/")
-        for u, _ in _soup_links(html, page, host):
-            pu = urlparse(u)
-            if PAGINATION_RX.search(u) and pu.path.rstrip("/").startswith(root) and u not in seen and len(queue) < 60:
-                queue.append(u)
-        for u, _ in _soup_links(html, page, host, content_only=True):
-            if not PAGINATION_RX.search(u) and is_product(u):
+        for u, _, chrome in _all_links(html, page, host):
+            if PAGINATION_RX.search(u):
+                if urlparse(u).path.rstrip("/").startswith(root) and u not in seen and len(queue) < 60:
+                    queue.append(u)
+            elif not chrome and is_product(u):
                 products.append(u)
     return list(dict.fromkeys(products))
 
@@ -418,15 +412,14 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     known = {url_key(u): u for u in urls}
     # Links der står på forsiden (menu, footer, kategorier) er ikke tilbudsprodukter – heller ikke når de står i sitemap
     nav: set[str] = set()
-    if not include:
-        try:
-            home_html = client.get_text(base + "/") or ""
-            all_links = {url_key(u) for u, _ in _soup_links(home_html, base + "/", host)}
-            content = {url_key(u) for u, _ in _soup_links(home_html, base + "/", host, content_only=True)}
-            nav = all_links - content  # kun menu/top/bund – vine i forsidens indhold er ikke 'menu'
-
-        except Exception:  # noqa: BLE001
-            nav = set()
+    try:
+        home_html = client.get_text(base + "/") or ""
+    except Exception:  # noqa: BLE001
+        home_html = None
+    if not include and home_html:
+        links = _all_links(home_html, base + "/", host)
+        # kun menu/top/bund – vine i forsidens indhold er ikke 'menu'
+        nav = {url_key(u) for u, _, chrome in links if chrome} - {url_key(u) for u, _, chrome in links if not chrome}
 
     def is_product(u: str) -> bool:
         path = urlparse(u).path
@@ -442,7 +435,7 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
 
     offer_pages = [urljoin(base + "/", o) for o in retailer.get("offer_urls") or []]
     if not offer_pages or retailer.get("discover_offers", True):
-        offer_pages += discover_offer_pages(client, base, host, sitemap_urls_=all_urls)
+        offer_pages += discover_offer_pages(client, base, host, sitemap_urls_=all_urls, home_html=home_html)
     offer_pages = list(dict.fromkeys(offer_pages))
     homepage_offer = any(urlparse(p).path in ("", "/") for p in offer_pages)
     offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []

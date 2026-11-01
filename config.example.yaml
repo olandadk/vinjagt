@@ -42,3 +42,12 @@ publish:
   remote: ""
   branch: pages
   cname: ""               # eget domæne, fx vin.olanda.dk (valgfrit)
+
+alerts:                   # prisalarm til mobilen via ntfy (gratis app, ingen konto) – tom ntfy_topic = slået fra
+  ntfy_topic: ""          # fx vinjagt-k7q2xm9 – vælg et navn, der er svært at gætte, og abonnér på det i ntfy-appen
+  ntfy_server: https://ntfy.sh
+  site_url: ""            # adressen på din side – beskeden åbner den, når man trykker
+  min_score: 80           # besked om nye forhandlertilbud med mindst denne score ...
+  watch:                  # ... og om nye tilbud på vine, du holder øje med (alle ord skal stå i navn/producent)
+    # - {q: "barolo", max: 250}
+    # - {q: "chablis premier cru"}

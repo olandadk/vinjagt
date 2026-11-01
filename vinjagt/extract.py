@@ -139,7 +139,7 @@ def parse_before_price(text: str, current: float | None) -> tuple[float | None, 
 def parse_vintage(text: str) -> int | None:
     if not text:
         return None
-    for m in re.finditer(r"(?<![\d,.])(19[4-9]\d|20[0-3]\d)(?![\d,.]|\s*(?:ml|cl|år|years))", text):
+    for m in re.finditer(r"(?<![\d,.])(19[4-9]\d|20[0-3]\d)(?!\d|[,.]\d|\s*(?:ml|cl|år\b|years))", text):
         y = int(m.group(1))
         if 1945 <= y <= 2035:
             return y
@@ -150,10 +150,10 @@ def parse_volume_cl(text: str) -> float | None:
     if not text:
         return None
     t = text.lower()
-    if "magnum" in t:
-        return 150.0
     if re.search(r"\bjeroboam\b|\bdouble magnum\b", t):
         return 300.0
+    if "magnum" in t:
+        return 150.0
     m = re.search(r"(\d+(?:[.,]\d+)?)\s*(cl|ml|ltr|liter|l)\b", t)
     if not m:
         return None
@@ -241,7 +241,8 @@ TYPES = ["rød", "hvid", "rosé", "mousserende", "dessert", "orange"]
 
 _EXPLICIT = [
     ("mousserende", ["mousserende", "sparkling", "schaumwein", "sekt", "winzersekt", "perlwein", "crémant de", "spumante", "champagne", "cava", "prosecco", "cremant", "crémant", "franciacorta",
-                     "spumante", "sekt", "pet nat", "pét nat", "petnat", "pet-nat", "frizzante", "lambrusco", "boblevin", "bobler"]),
+                     "spumante", "sekt", "pet nat", "pét nat", "petnat", "pet-nat", "frizzante", "lambrusco", "boblevin", "bobler",
+                     "brut", "extra brut", "brut nature"]),
     ("dessert", ["portvin", "port", "suesswein", "süßwein", "dessertwein", "likörwein", "sherry", "madeira", "marsala", "sauternes", "tokaji", "tokaj", "dessertvin", "hedvin",
                  "vin santo", "icewine", "ice wine", "eiswein", "banyuls", "maury", "pedro ximenez", "beerenauslese",
                  "trockenbeerenauslese", "vin doux naturel", "passito", "recioto", "late harvest", "moscatel de setubal", "barsac"]),

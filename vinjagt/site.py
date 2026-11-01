@@ -22,9 +22,9 @@ def _iso(ts):
 
 def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     t0 = time.time()
-    wines = db.current_wines()
+    wines = db.current_wines(max_products_api=int(cfg["max_products_api"]))
     groups = group_wines(wines)
-    history = db.all_history()
+    history = db.history_summary()
     ext = db.ext_ratings()
     rmap = {r["id"]: r for r in retailers_cfg}
     deals, stats = evaluate(wines, groups, history, ext, rmap, cfg["scoring"])
@@ -48,6 +48,7 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
             "products": x.get("products") or 0, "wines": x.get("wines") or 0, "deals": deal_count.get(r["id"], 0),
             "error": x.get("error"), "offer_products": x.get("offer_products") or 0,
             "offer_pages": json.loads(x.get("offer_pages") or "[]"),
+            "shipping": r.get("shipping"), "free_shipping_over": r.get("free_shipping_over"),
         })
 
     # kvalitetskilder: hvor mange vine og tilbud hver kilde vurderer

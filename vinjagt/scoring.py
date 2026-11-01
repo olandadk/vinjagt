@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
-from datetime import date, timedelta
 from statistics import median
 
 from .extract import to_points
@@ -44,13 +43,11 @@ def _fit(points_prices: list[tuple[float, float]]):
     return my - b * mx, b
 
 
-def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[dict]], ext_rows: list[dict],
+def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict], ext_rows: list[dict],
              retailers: dict[str, dict], cfg: dict, explain: dict | None = None) -> tuple[list[dict], dict]:
     min_discount = float(cfg.get("min_discount", 0.10))
     min_value = float(cfg.get("min_value_points", 3.0))
     min_vivino_count = int(cfg.get("min_vivino_ratings", 25))
-    today = date.today().isoformat()
-    d30 = (date.today() - timedelta(days=30)).isoformat()
 
     stock = [w for w in wines if w["in_stock"] and w["price_1"]]
     members: dict[int, list[dict]] = defaultdict(list)
@@ -126,13 +123,12 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
         if market_1:
             refs.append(("markedspris", market_1, W_MARKET))
 
-        hist = [h for h in history.get(w["id"], []) if h["day"] < today]
-        if len(hist) >= 14:
-            refs.append(("egen prishistorik", median(h["price_1"] for h in hist[-90:]), W_HISTORY))
+        hist = history.get(w["id"]) or {}
+        if hist.get("n", 0) >= 14:
+            refs.append(("egen prishistorik", hist["med90"], W_HISTORY))
         if w.get("before_price"):
             wgt = W_BEFORE.get(w.get("before_kind") or "førpris", 0.6)
-            recent = [h["price_1"] for h in hist if h["day"] >= d30]
-            if len(recent) >= 5 and min(recent) < w["before_price"] * 0.97:
+            if hist.get("n30", 0) >= 5 and hist["min30"] < w["before_price"] * 0.97:
                 wgt = W_SUSPECT
                 flags.append("førpris ikke bekræftet")
             refs.append(("vejl. pris" if w.get("before_kind") == "vejledende" else "førpris", w["before_price"], wgt))
@@ -189,7 +185,8 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, list[
             "ch": {"r": cheapest["retailer_id"], "p": cheapest["price_1"], "u": cheapest["url"]} if cheapest else None,
             "ref": best_ref, "d": round(raw_disc * 100, 1), "de": round(best_disc * 100, 1),
             "q": q, "rt": ratings, "v": value, "s": score, "fl": flags,
-            "fs": w.get("first_seen"), "of": bool(w.get("on_offer")),
+            "fs": w.get("first_seen"), "of": bool(w.get("on_offer")), "g": gid,
+            "sd": hist.get("since"), "lo": hist.get("lo90"), "h": hist.get("weeks"),
             "fx": (retailers.get(w["retailer_id"]) or {}).get("country") if foreign else None,
         })
     deals.sort(key=lambda d: -d["s"])

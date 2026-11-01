@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import logging.handlers
 import os
 import sys
 import time
@@ -58,6 +59,7 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
         client.delay = float(r["request_delay"])
     try:
         try:  # hurtigt tjek af om shoppen overhovedet svarer
+            client._wait(r["url"])
             client.s.head(r["url"], timeout=min(15, float(cfg["timeout"])), allow_redirects=True)
         except Exception as e:  # noqa: BLE001
             return r, platform, [], 0, f"ikke tilgængelig ({type(e).__name__})", time.time() - t0, {}
@@ -346,12 +348,12 @@ def cmd_why(cfg, db, url: str):
     print(f"   pris 1 fl. {w['price_1']} kr, 6 fl. {w['price_6']} kr, førpris {w['before_price'] or '-'}"
           f" ({w['before_kind'] or '-'}), på lager: {'ja' if w['in_stock'] else 'nej'}")
     print(f"   regnes som forhandlertilbud: {'JA' if w['on_offer'] else 'NEJ (ingen førpris og ikke fundet på en tilbudsside)'}")
-    wines = db.current_wines()
+    wines = db.current_wines(max_products_api=int(cfg["max_products_api"]))
     if not any(x["id"] == w["id"] for x in wines):
-        print("   NB: ikke set i de seneste 10 dage – tæller ikke med")
+        print("   NB: ikke set i forhandlerens seneste fulde scanning (eller de seneste 10 dage) – tæller ikke med")
         return
     exp = {w["id"]: None}
-    evaluate(wines, group_wines(wines), db.all_history(), db.ext_ratings(),
+    evaluate(wines, group_wines(wines), db.history_summary(), db.ext_ratings(),
              {x["id"]: x for x in C.retailers(cfg)}, cfg["scoring"], explain=exp)
     e = exp[w["id"]]
     if not e:
@@ -393,7 +395,9 @@ def main(argv=None):
         level=logging.DEBUG if a.verbose else logging.INFO,
         format="%(asctime)s %(levelname)-7s %(message)s",
         handlers=[logging.StreamHandler(sys.stdout),
-                  logging.FileHandler(os.path.join(cfg["data_dir"], "vinjagt.log"), encoding="utf-8")],
+                  # roteres, så loggen ikke vokser uden grænse på Pi'ens SD-kort
+                  logging.handlers.RotatingFileHandler(os.path.join(cfg["data_dir"], "vinjagt.log"),
+                                                       maxBytes=1_000_000, backupCount=3, encoding="utf-8")],
     )
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     if a.command == "serve":
@@ -409,6 +413,9 @@ def main(argv=None):
         cmd_ratings(cfg, db, force=a.command == "ratings")
     if a.command in ("run", "build"):
         site.build(db, cfg, C.retailers(cfg))
+    if a.command == "run":
+        from . import alerts
+        alerts.send(cfg, cfg["site_dir"], cfg["data_dir"])
     if a.command in ("run", "publish"):
         try:
             publish.publish(cfg)

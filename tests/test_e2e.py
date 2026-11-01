@@ -74,6 +74,8 @@ def test_end_to_end(tmp_path):
         assert kilder["csv_files"] == 1 and kilder["vivino"] is False and kilder["vivino_status"]["status"] == "slået fra"
         assert (site / "kilder.html").exists() and "stats" in json.loads((site / "data" / "meta.json").read_text())
         assert all(x["p6"] <= x["p1"] for x in deals)
+        assert all({"g", "sd", "h", "lo"} <= x.keys() for x in deals)
+        assert any(len([p for p in x["h"] if p is not None]) >= 2 for x in deals)  # prishistorik til grafen
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-woo")
         assert any(x["p6"] < x["p1"] for x in deals if x["r"] == "shop-generisk")
         assert any(x["of"] for x in deals) and not all(x["of"] for x in deals)
