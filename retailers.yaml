@@ -118,15 +118,4 @@
   note: Tidligere HaugaardVin
   offer_urls: [/produkt-kategori/aktuelle-tilbud/]
 
-# ---------------------------------------------------------------- udenlandske shops
-# Priser omregnes til DKK. De bruges IKKE som markedspris for danske tilbud, fordi dansk
-# vinafgift, moms og fragt ikke er med. Vises med flag på hjemmesiden.
 
-- name: Gute Weine
-  url: https://www.gute-weine.de/dk   # dansk udgave af butikken
-  city: Tyskland
-  note: Tysk webshop med dansk udgave
-  currency: EUR             # bruges kun hvis siden ikke selv oplyser valuta (DKK i den danske udgave)
-  product_url_pattern: "/dk/[^?#]+"
-  country: DE
-  foreign: true
