@@ -12,6 +12,7 @@
   diagnose   vis hvorfor produktsider ikke giver vine (pr. forhandler)
   debug URL  hent én side og vis hvad scanneren ser
   why URL    forklar hvorfor en vin (ikke) står på tilbudslisten
+  mail       læs nyhedsbreve fra postkassen og vis fundne vin-links
 """
 from __future__ import annotations
 
@@ -81,6 +82,8 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         wines, n = [], 0
         rates = {k.upper(): float(v) for k, v in (cfg.get("exchange_rates") or {}).items()}
+        from .platforms.generic import url_key
+        mail_keys = {url_key(u) for u in r.get("_mail_urls") or []}
         default_cur = (r.get("currency") or "DKK").upper()
         for p in it:
             n += 1
@@ -93,6 +96,8 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
                 continue  # ukendt valuta
             w = normalize(p, fx)
             if w:
+                if mail_keys and url_key(w.url) in mail_keys:
+                    w.on_offer = True  # nævnt i et nyhedsbrev
                 wines.append(w)
         info["offer_products"] = sum(1 for w in wines if w.on_offer)
         return r, platform, wines, n, None, time.time() - t0, info
@@ -124,6 +129,11 @@ def cmd_scan(cfg, db, only: set[str] | None = None, force_detect=False):
     import threading
     lock = threading.Lock()
     rs = [r for r in C.retailers(cfg) if r["enabled"] and (not only or r["id"] in only)]
+    mail = {}
+    for ml in db.mail_links(float((cfg.get("mail") or {}).get("keep_days", 14))):
+        mail.setdefault(ml["retailer_id"], []).append(ml["url"])
+    for r in rs:
+        r["_mail_urls"] = mail.get(r["id"], [])
     jobs = []
     for r in rs:
         db.upsert_retailer(r)
@@ -371,6 +381,25 @@ def cmd_why(cfg, db, url: str):
         "" if shown else (" – ikke et forhandlertilbud" if not w["on_offer"] else " – rabatten er for lille / ingen troværdig reference")))
 
 
+def cmd_mail(cfg, db, verbose=False):
+    from . import mail
+    if not (cfg.get("mail") or {}).get("enabled"):
+        if verbose:
+            print("Nyhedsbreve er slået fra – se 'mail:' i config.yaml")
+        return
+    try:
+        n = mail.fetch(db, cfg, C.retailers(cfg), _client(cfg))
+    except Exception as e:  # noqa: BLE001
+        log.error("Kunne ikke læse postkassen: %s", e)
+        if verbose:
+            print(f"FEJL: {e}")
+        return
+    if verbose:
+        print(f"{n} nye vin-links fra nyhedsbreve. Seneste 14 dage:")
+        for ml in db.mail_links(14)[:60]:
+            print(f"   {ml['retailer_id']:24} {ml['url']}   ({ml['subject'][:40]})")
+
+
 def cmd_serve(cfg, port: int):
     import functools
     import http.server
@@ -381,7 +410,7 @@ def cmd_serve(cfg, port: int):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="vinjagt", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers", "diagnose", "debug", "why"])
+    ap.add_argument("command", choices=["run", "scan", "detect", "ratings", "build", "publish", "serve", "status", "offers", "diagnose", "debug", "why", "mail"])
     ap.add_argument("url", nargs="?", help="URL til 'debug' og 'why'")
     ap.add_argument("--only", help="kommasepareret liste af forhandler-id'er")
     ap.add_argument("--config")
@@ -405,6 +434,8 @@ def main(argv=None):
     db = DB(os.path.join(cfg["data_dir"], "vinjagt.sqlite"))
     only = set(a.only.split(",")) if a.only else None
     from . import publish, site
+    if a.command in ("run", "mail"):
+        cmd_mail(cfg, db, verbose=a.command == "mail")
     if a.command in ("run", "scan"):
         cmd_scan(cfg, db, only, a.redetect)
     if a.command == "detect":

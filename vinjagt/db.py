@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS ext_ratings(
   source TEXT, ext_id TEXT, name TEXT, producer TEXT, vintage INTEGER, wine_type TEXT, rating REAL, scale REAL,
   count INTEGER, price REAL, url TEXT, wine_key TEXT, fetched REAL, PRIMARY KEY(source, ext_id, vintage));
 CREATE INDEX IF NOT EXISTS ext_key ON ext_ratings(wine_key);
+CREATE TABLE IF NOT EXISTS mail_links(
+  url TEXT PRIMARY KEY, retailer_id TEXT, subject TEXT, received REAL, first_seen REAL);
+CREATE TABLE IF NOT EXISTS mail_seen(
+  message_id TEXT PRIMARY KEY, subject TEXT, received REAL, links INTEGER);
 """
 
 
@@ -212,6 +216,22 @@ class DB:
         rest = [u for u in dict.fromkeys(urls) if u not in pset and not skip(u) and not dead_group(u)]
         rest.sort(key=lambda u: (-round(rate(u), 1), known.get(u, {}).get("last_fetched") or 0))
         return pri + rest
+
+    # ---------------------------------------------- nyhedsbreve
+    def mail_seen_ids(self) -> set[str]:
+        return {r[0] for r in self.c.execute("SELECT message_id FROM mail_seen")}
+
+    def mark_mail_seen(self, mid: str, subject: str, received: float, links: int):
+        self.c.execute("INSERT OR REPLACE INTO mail_seen VALUES(?,?,?,?)", (mid, subject, received, links))
+
+    def save_mail_link(self, url: str, rid: str, subject: str, received: float):
+        self.c.execute("INSERT INTO mail_links(url,retailer_id,subject,received,first_seen) VALUES(?,?,?,?,?) "
+                       "ON CONFLICT(url) DO UPDATE SET subject=excluded.subject, received=MAX(received, excluded.received)",
+                       (url, rid, subject, received, time.time()))
+
+    def mail_links(self, days: float = 14) -> list[dict]:
+        cutoff = time.time() - days * 86400
+        return [dict(r) for r in self.c.execute("SELECT * FROM mail_links WHERE received>=? ORDER BY received DESC", (cutoff,))]
 
     def known_non_products(self, rid: str) -> set[str]:
         return {r[0] for r in self.c.execute("SELECT url FROM pages WHERE retailer_id=? AND is_product=0", (rid,))}

@@ -439,6 +439,7 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     offer_pages = list(dict.fromkeys(offer_pages))
     homepage_offer = any(urlparse(p).path in ("", "/") for p in offer_pages)
     offer_products = crawl_offer_pages(client, offer_pages, host, is_product) if offer_pages else []
+    offer_products = list(dict.fromkeys(list(retailer.get("_mail_urls") or []) + offer_products))  # nyhedsbreve først
     if known:  # brug sitemap-udgaven af URL'en, så sidestatus matcher
         offer_products = list(dict.fromkeys(known.get(url_key(u), u) for u in offer_products))
     if db:

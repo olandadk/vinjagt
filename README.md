@@ -127,6 +127,17 @@ Kør derefter `python3 -m vinjagt detect`. Hvis en shop ikke kan scannes (ingen 
 schema.org-data), vises det med status på siden *Forhandlere*. Til sådanne shops kan `product_url_pattern` (regex)
 hjælpe crawleren med at finde produktsiderne.
 
+## Nyhedsbreve
+
+Vinforhandlernes nyhedsbreve kan også give tilbud. Pi'en læser en postkasse via IMAP hver nat, finder links til
+vine hos de scannede forhandlere (også gennem klik-registrerings-links) og henter dem først. Prisen læses altid på
+forhandlerens side. Vinene markeres "fra nyhedsbrev" og tæller som tilbud i 14 dage.
+
+1. Opret en **separat** e-mailadresse (fx en gratis Gmail) og tilmeld den forhandlernes nyhedsbreve.
+2. Gmail: slå 2-trinsbekræftelse til og lav en app-adgangskode på myaccount.google.com/apppasswords.
+3. Udfyld `mail:` i `config.yaml` (host, user, password, `enabled: true`).
+4. Test med `python3 -m vinjagt mail` – den viser de fundne vin-links.
+
 ## Kvalitetskilder
 
 | Kilde | Hvordan | Troværdighed |

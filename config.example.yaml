@@ -51,3 +51,15 @@ alerts:                   # prisalarm til mobilen via ntfy (gratis app, ingen ko
   watch:                  # ... og om nye tilbud på vine, du holder øje med (alle ord skal stå i navn/producent)
     # - {q: "barolo", max: 250}
     # - {q: "chablis premier cru"}
+
+mail:
+  # Nyhedsbreve: brug en SEPARAT postkasse kun til vinforhandlernes nyhedsbreve.
+  # Gmail: slå 2-trinsbekræftelse til og lav en "app-adgangskode" (myaccount.google.com/apppasswords).
+  enabled: false
+  host: imap.gmail.com      # Outlook: outlook.office365.com · iCloud: imap.mail.me.com · Simply: imap.simply.com
+  port: 993
+  user: ""                  # fx vinjagt.lars@gmail.com
+  password: ""              # app-adgangskode – står kun her på Pi'en (config.yaml lægges ikke på GitHub)
+  folder: INBOX
+  days: 14                  # læs mails fra de seneste 14 dage
+  keep_days: 14             # vine fra nyhedsbreve tæller som tilbud i 14 dage

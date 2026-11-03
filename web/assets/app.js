@@ -150,7 +150,7 @@
     const flags = (d._new ? `<span class="tag new" title="Tilbuddet startede ${V.esc(d.sd)}">ny</span>` : "") + fxTag +
       (d.of ? `<span class="tag good" title="Forhandleren har selv sat varen ned">forhandlertilbud</span>` : "") +
       (lowest ? `<span class="tag good" title="Ingen lavere pris hos forhandleren de sidste 90 dage">laveste pris i 90 dage</span>` : "") +
-      d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}">${V.esc(f)}</span>`).join("");
+      d.fl.map(f => `<span class="tag ${f.includes("ikke") ? "warn" : "good"}"${f === "fra nyhedsbrev" && d.ml ? ` title="${V.esc(d.ml)}"` : ""}>${V.esc(f)}</span>`).join("");
     const was = d.bp ? `<div class="was">${d.bk === "vejledende" ? "Vejl." : "Før"} <s>${V.kr(d.bp)}</s></div>` : "";
     const mkt = d.m1 ? `<div class="was">Andre (${d.mn}): ${V.kr(d.m1)}</div>` : "";
     const lo = d.lo && !lowest && d.lo < d.p1 ? `<div class="was" title="Laveste pris hos forhandleren de sidste 90 dage">Laveste 90 dage: ${V.kr(d.lo)}</div>` : "";

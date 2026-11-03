@@ -29,6 +29,13 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     rmap = {r["id"]: r for r in retailers_cfg}
     deals, stats = evaluate(wines, groups, history, ext, rmap, cfg["scoring"])
     deals = deals[: int(cfg["site"]["max_deals"])]
+    from .platforms.generic import url_key
+    mail_subjects = {url_key(m["url"]): m["subject"] for m in db.mail_links(float((cfg.get("mail") or {}).get("keep_days", 14)))}
+    for d in deals:
+        subj = mail_subjects.get(url_key(d["u"]))
+        if subj is not None:
+            d["fl"].insert(0, "fra nyhedsbrev")
+            d["ml"] = subj
 
     # forhandleroversigt
     db_r = {r["id"]: r for r in db.retailers()}

@@ -24,6 +24,8 @@ DEFAULTS = {
     "ratings": {"vivino": {"enabled": False, "pages_per_band": 4, "every_days": 7}, "csv_dir": "ratings"},
     "site": {"title": "Vinjagt", "subtitle": "Gode vintilbud hos danske webshops", "max_deals": 4000},
     "publish": {"enabled": False, "remote": "", "branch": "pages", "cname": ""},
+    "mail": {"enabled": False, "host": "", "port": 993, "user": "", "password": "", "folder": "INBOX",
+             "days": 14, "keep_days": 14, "follow_limit": 40},
     "alerts": {"ntfy_topic": "", "ntfy_server": "https://ntfy.sh", "site_url": "", "min_score": 80, "watch": []},
 }
 
