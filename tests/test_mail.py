@@ -49,3 +49,21 @@ def test_mail_links(tmp_path, monkeypatch):
     assert n == 2
     assert urls == ["https://www.shop.dk/vin/barolo-2019", "https://www.shop.dk/vin/chianti?size=75"]
     assert mail.fetch(db, cfg, [{"id": "shop", "url": "https://www.shop.dk"}], FakeClient()) == 0  # samme mail igen
+
+
+def test_clean_and_junk():
+    u = ("https://philipsonwine.com/produkter/billecart-salmon-reserve?tw_source=klaviyo"
+         "&tw_profile_id=01M6HBJRQTT5Y0C3B5RD69H3HD&tw_medium=flow")
+    assert mail._clean(u) == "https://philipsonwine.com/produkter/billecart-salmon-reserve"
+    assert mail.is_junk("https://philipsonwine.com/admin/public/GetImage.ashx?Image=%2FFiles%2Fx.png&Height=1000")
+    assert mail.is_junk("https://philipsonwine.com/opret-bruger")
+    assert not mail.is_junk("https://philipsonwine.com/produkter/2020-champagne-douard-christian-cuvee-millesime-brut")
+
+
+def test_cleanup_of_old_rows(tmp_path):
+    db = DB(str(tmp_path / "t.sqlite"))
+    db.save_mail_link("https://p.com/produkter/a?tw_profile_id=X", "p", "s", 1e10)
+    db.save_mail_link("https://p.com/produkter/a", "p", "s", 1e10)
+    db.save_mail_link("https://p.com/opret-bruger", "p", "s", 1e10)
+    db.clean_mail_links(mail._clean, mail.is_junk)
+    assert [m["url"] for m in db.mail_links(1e9)] == ["https://p.com/produkter/a"]

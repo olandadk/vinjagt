@@ -229,6 +229,20 @@ class DB:
                        "ON CONFLICT(url) DO UPDATE SET subject=excluded.subject, received=MAX(received, excluded.received)",
                        (url, rid, subject, received, time.time()))
 
+    def clean_mail_links(self, clean, is_junk):
+        """Ryd op i tidligere gemte links: fjern sporingsparametre, billeder og ikke-vinsider."""
+        for row in list(self.c.execute("SELECT * FROM mail_links")):
+            u = row["url"]
+            if is_junk(u):
+                self.c.execute("DELETE FROM mail_links WHERE url=?", (u,))
+                continue
+            cu = clean(u)
+            if cu != u:
+                self.c.execute("DELETE FROM mail_links WHERE url=?", (u,))
+                self.c.execute("INSERT OR IGNORE INTO mail_links VALUES(?,?,?,?,?)",
+                               (cu, row["retailer_id"], row["subject"], row["received"], row["first_seen"]))
+        self.commit()
+
     def mail_links(self, days: float = 14) -> list[dict]:
         cutoff = time.time() - days * 86400
         return [dict(r) for r in self.c.execute("SELECT * FROM mail_links WHERE received>=? ORDER BY received DESC", (cutoff,))]
