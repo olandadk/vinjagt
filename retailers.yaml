@@ -118,4 +118,9 @@
   note: Tidligere HaugaardVin
   offer_urls: [/produkt-kategori/aktuelle-tilbud/]
 
+- name: Den Sidste Flaske
+  url: https://densidsteflaske.dk
+  city: København
+  note: Shopify-butik – tilbud genkendes på førpris og tilbudssamling
+  request_delay: 10         # Shopify bremser ved hurtige kald (HTTP 429)
 
