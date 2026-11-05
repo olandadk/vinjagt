@@ -5,7 +5,6 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_USER="${SUDO_USER:-$USER}"
-PORT="${VINJAGT_PORT:-8080}"
 RUN_AT="${VINJAGT_TIME:-04:15}"
 
 echo "==> Installerer pakker (bruger færdige Debian-pakker – intet skal kompileres på Pi'en)"
@@ -49,30 +48,19 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
-sudo tee /etc/systemd/system/vinjagt-web.service >/dev/null <<EOF
-[Unit]
-Description=Vinjagt – lokal webserver på port $PORT
-After=network.target
-
-[Service]
-User=$APP_USER
-WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/python3 -m vinjagt serve --port $PORT
-Restart=on-failure
-MemoryMax=80M
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Den lokale webserver er udgået – siden udgives på GitHub Pages. Fjern den, hvis den findes fra en ældre installation.
+if [ -f /etc/systemd/system/vinjagt-web.service ]; then
+  sudo systemctl disable --now vinjagt-web.service 2>/dev/null || true
+  sudo rm -f /etc/systemd/system/vinjagt-web.service
+fi
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now vinjagt.timer vinjagt-web.service
+sudo systemctl enable --now vinjagt.timer
 
-IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 cat <<EOF
 
 Færdig!
-  Hjemmeside:          http://${IP:-raspberrypi.local}:$PORT
+  Hjemmeside:          udgives på GitHub Pages (se README) – vis lokalt med: python3 -m vinjagt serve
   Kør scanning nu:     sudo systemctl start vinjagt.service   (første gang kan tage 1-3 timer)
   Følg loggen:         journalctl -u vinjagt -f
   Status pr. shop:     python3 -m vinjagt status

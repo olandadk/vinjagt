@@ -47,7 +47,6 @@ Installationen opretter:
 | Tjeneste              | Hvad                                                     |
 |-----------------------|----------------------------------------------------------|
 | `vinjagt.timer`       | kører scanning + vurdering + byg + udgiv hver nat 04:15 |
-| `vinjagt-web.service` | serverer siden på `http://<pi-ip>:8080`                   |
 
 Nyttige kommandoer:
 
@@ -90,7 +89,7 @@ så repository'et ikke vokser med daglige datafiler.
    - **GitHub:** Settings → Pages → Deploy from a branch → `pages` / `(root)`. Siden kommer på `https://BRUGER.github.io/vinjagt/`.
    - **Codeberg:** grenen `pages` udgives automatisk på `https://BRUGER.codeberg.page/vinjagt/`.
    - **GitLab:** grenen indeholder en `.gitlab-ci.yml`, som udgiver den via GitLab Pages.
-   - **Egen Gitea/Forgejo på Pi'en:** brug bare den lokale webserver på port 8080.
+   - **Kun lokalt:** `python3 -m vinjagt serve` viser siden på `http://<pi-ip>:8080`, så længe kommandoen kører.
 
 Vil du ikke udgive offentligt, så lad `publish.enabled: false` stå – siden er stadig tilgængelig på dit lokalnet.
 
@@ -178,7 +177,7 @@ vinjagt/
   site.py      bygger site/ (kopierer web/ og skriver data/*.json)
   publish.py   skubber site/ til git-grenen
 web/           HTML/CSS/JS til hjemmesiden (ingen build-trin, ingen afhængigheder)
-deploy/        install.sh til Raspberry Pi (systemd-timer og webserver)
+deploy/        install.sh til Raspberry Pi (systemd-timer)
 ```
 
 ## Licens
