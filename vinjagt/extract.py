@@ -180,6 +180,9 @@ def parse_pack_size(text: str) -> int | None:
     m = re.search(r"\b(\d{1,2})\s*(?:fl\.?|flasker|stk\.?)\s*(?:i\s+)?(?:kasse|karton|ramme)\b", t)
     if m:
         return int(m.group(1))
+    m = re.search(r"\(\s*(\d{1,2})\s*(?:fl\.?|flasker|stk\.?|bottles)\s*\)", t)  # "(3 fl.)"
+    if m and int(m.group(1)) > 1:
+        return int(m.group(1))
     return None
 
 
@@ -232,7 +235,8 @@ NON_WINE = [
     "vinkoeleskab", "vinkøleskab", "gavekort", "gaveaeske", "gaveæske", "gavekurv", "gavepose", "smagning",
     "vinsmagning", "arrangement", "billet", "kursus", "bog", "fragt", "pant", "trae kasse", "trækasse",
     "smagekasse", "vinpakke", "mixkasse", "blandet kasse", "abonnement", "vinklub", "alkoholfri", "alcohol free",
-    "0,0%", "alkoholfrit",
+    "0,0%", "alkoholfrit", "spritz", "tea", "negroni", "cocktail", "limoncello", "limoneto", "kombucha",
+    "bag in box", "bib", "certifikat", "certificate", "collector", "collectors",
 ]
 
 # ---------------------------------------------------------------- vintype
@@ -288,7 +292,7 @@ COUNTRIES = {
     "Tyskland": ["tyskland", "germany", "deutschland", "mosel", "rheingau", "pfalz", "rheinhessen", "nahe", "baden", "franken"],
     "Østrig": ["oestrig", "østrig", "austria", "osterreich", "österreich", "wachau", "kamptal", "burgenland", "kremstal", "steiermark"],
     "USA": ["usa", "californien", "california", "napa", "sonoma", "oregon", "washington state", "paso robles", "lodi"],
-    "Chile": ["chile", "maipo", "colchagua", "casablanca", "maule", "aconcagua", "rapel"],
+    "Chile": ["chile", "concha y toro", "maipo", "colchagua", "casablanca", "maule", "aconcagua", "rapel"],
     "Argentina": ["argentina", "mendoza", "salta", "uco valley", "patagonien", "patagonia"],
     "Australien": ["australien", "australia", "barossa", "mclaren vale", "margaret river", "coonawarra", "yarra", "clare valley"],
     "New Zealand": ["new zealand", "newzealand", "marlborough", "central otago", "hawkes bay", "hawke s bay"],
@@ -301,6 +305,7 @@ COUNTRIES = {
     "Slovenien": ["slovenien", "slovenia"],
     "Kroatien": ["kroatien", "croatia"],
     "Uruguay": ["uruguay"],
+    "Canada": ["canada", "ontario", "okanagan", "niagara", "british columbia"],
     "Israel": ["israel"],
     "England": ["england", "english sparkling"],
     "Schweiz": ["schweiz", "switzerland"],
@@ -312,6 +317,11 @@ COUNTRIES = {
 def classify_type(name: str, categories: Iterable[str] = (), description: str = "") -> str | None:
     """Vintype ud fra kategorier/tags først, derefter navn, derefter druer/områder."""
     cats = " | ".join(categories or [])
+    # tydelige ord i selve navnet (fx "Orangevin", "Rosé", "Champagne") vinder over kategorierne
+    for wtype, words in _EXPLICIT[:4]:
+        w = has_word(name, words)
+        if w and not (wtype == "rosé" and w == "rose") and not (wtype == "dessert" and w == "port"):
+            return wtype
     for source in (cats, name):
         if not source:
             continue
@@ -335,10 +345,17 @@ def classify_type(name: str, categories: Iterable[str] = (), description: str = 
     return None
 
 
+PRODUCER_COUNTRY = {"concha y toro": "Chile", "bodega norton": "Argentina"}
+
+
 def detect_country(*texts: str, exclude: Iterable[str] = ()) -> str | None:
     for text in texts:
         if not text:
             continue
+        t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+        for producer, country in PRODUCER_COUNTRY.items():
+            if f" {producer} " in t:
+                return country
         for country, words in COUNTRIES.items():
             if country in exclude:
                 continue
@@ -349,7 +366,7 @@ def detect_country(*texts: str, exclude: Iterable[str] = ()) -> str | None:
 
 # Blandede kasser og pakker – også som sammensatte ord ("efterårssmagskassen", "Spritz-pakken", "6 økologiske vine")
 MIXED_RX = re.compile(r"smag[se]?kasse|smagepakke|vinpakke|vinkasse|blandet\s+kasse|mixkasse|-?pakken\b|"
-                      r"kassen\b|\bmix\b|\bsampler\b|\b\d{1,2}\s+(?:[a-zæøå]+\s+){0,2}vine\b|probierpaket|weinpaket", re.I)
+                      r"kassen\b|\bkasse med\b|\bpakke\b|\bmix\b|\bsampler\b|\b\d\s*x\s*\d{2,3}\s*p\b|\b\d{1,2}\s+(?:[a-zæøå]+\s+){0,2}vine\b|probierpaket|weinpaket", re.I)
 
 
 def is_wine(name: str, categories: Iterable[str] = (), wine_type: str | None = None) -> bool:
@@ -401,7 +418,11 @@ def _canon_critic(name: str) -> str:
         "halliday": "James Halliday", "gault&millau": "Gault Millau", "borsen": "Børsen", "jp": "Jyllands-Posten",
         "jyllandsposten": "Jyllands-Posten", "b.t.": "BT", "revue du vin de france": "RVF",
     }
-    return mapping.get(low, n)
+    if low in mapping:
+        return mapping[low]
+    canon = {fold(c): c for c in CRITICS + DK_MEDIA}
+    canon.update({"vinavisen": "Vinavisen", "vinous": "Vinous", "luca maroni": "Luca Maroni"})
+    return canon.get(low, n)
 
 
 def parse_critic_scores(text: str) -> list[dict]:
@@ -490,6 +511,7 @@ GRAPE_SYNONYMS = {
     "Xinomavro": ["xinomavro"],
     "Agiorgitiko": ["agiorgitiko"],
     "Saperavi": ["saperavi"],
+    "Grenache Blanc": ["grenache blanc", "garnacha blanca", "garnatxa blanca"],
     "Chardonnay": ["chardonnay"],
     "Sauvignon Blanc": ["sauvignon blanc", "fumé blanc", "fume blanc", "sauvignon"],
     "Riesling": ["riesling"],
@@ -682,6 +704,9 @@ REGIONS = {
     "Kakheti": ("Georgien", ["kakheti"]),
 }
 
+# Producenter hvis navn indeholder et andet områdes navn (Concha y Toro er chilensk, ikke fra Toro i Spanien)
+PLACE_IN_PRODUCER = ["concha y toro", "bodega norton", "marques de riscal rueda"]
+
 _PCT_RX = re.compile(r"(\d{1,3})\s*%\s*([A-Za-zÀ-ÿ' \-]{3,30})")
 
 
@@ -704,26 +729,45 @@ def _grape_hits(text: str) -> list[tuple[int, str]]:
     return sorted(hits)
 
 
-def detect_grape(name: str, categories=(), description: str = "") -> str | None:
+RED_GRAPES = {"Cabernet Sauvignon", "Cabernet Franc", "Merlot", "Pinot Noir", "Syrah", "Grenache", "Mourvèdre",
+              "Tempranillo", "Sangiovese", "Nebbiolo", "Barbera", "Dolcetto", "Corvina", "Primitivo", "Negroamaro",
+              "Nero d'Avola", "Nerello Mascalese", "Aglianico", "Montepulciano", "Malbec", "Carménère", "Pinotage", "Gamay",
+              "Cinsault", "Carignan", "Tannat", "Touriga Nacional", "Mencía", "Bobal", "Blaufränkisch", "Zweigelt",
+              "Petit Verdot", "Lagrein", "Teroldego", "Xinomavro", "Agiorgitiko", "Saperavi", "Rondo"}
+WHITE_GRAPES = set(GRAPE_SYNONYMS) - RED_GRAPES
+
+
+def grape_fits(grape: str | None, wine_type: str | None, name: str = "") -> bool:
+    """Passer druen med vinens farve? (Blanc de Noirs må gerne være af røde druer.)"""
+    if not grape or wine_type not in ("rød", "hvid"):
+        return True
+    if wine_type == "hvid" and grape in RED_GRAPES:
+        return bool(re.search(r"blanc\s+de\s+noir|blanc\s+des\s+noir|white\s+zinfandel", fold(name)))
+    return not (wine_type == "rød" and grape in WHITE_GRAPES)
+
+
+def detect_grape(name: str, categories=(), description: str = "", wine_type: str | None = None) -> str | None:
     """Den (dominerende) drue: 1) i navnet, 2) i kategorier/egenskaber, 3) givet af appellationen,
-    4) højeste procent i beskrivelsen (fx '85% Merlot'), 5) første drue nævnt tidligt i beskrivelsen."""
+    4) højeste procent i beskrivelsen (fx '85% Merlot'), 5) første drue nævnt tidligt i beskrivelsen.
+    Druer der ikke passer med vinens farve springes over (fx Syrah i en hvid Crozes-Hermitage)."""
+    ok = lambda g: grape_fits(g, wine_type, name)  # noqa: E731
     for src in (name, " | ".join(categories or [])):
-        hits = _grape_hits(src)
+        hits = [g for _, g in _grape_hits(src) if ok(g)]
         if hits:
-            return hits[0][1]
+            return hits[0]
     nm = " " + re.sub(r"[^a-z0-9]+", " ", fold(f"{name} {' '.join(categories or [])}")) + " "
     for app, grape in APPELLATION_GRAPE:
-        if " " + re.sub(r"[^a-z0-9]+", " ", fold(app)).strip() + " " in nm:
+        if " " + re.sub(r"[^a-z0-9]+", " ", fold(app)).strip() + " " in nm and ok(grape):
             return grape
     best = None
     for pct, words in _PCT_RX.findall(description or ""):
-        hits = _grape_hits(words)
+        hits = [g for _, g in _grape_hits(words) if ok(g)]
         if hits and (best is None or int(pct) > best[0]):
-            best = (int(pct), hits[0][1])
+            best = (int(pct), hits[0])
     if best:
         return best[1]
-    hits = _grape_hits((description or "")[:400])
-    return hits[0][1] if hits else None
+    hits = [g for _, g in _grape_hits((description or "")[:400]) if ok(g)]
+    return hits[0] if hits else None
 
 
 def detect_region(*texts: str, country: str | None = None) -> tuple[str | None, str | None]:
@@ -735,6 +779,8 @@ def detect_region(*texts: str, country: str | None = None) -> tuple[str | None, 
         if not text:
             continue
         t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+        for producer in PLACE_IN_PRODUCER:  # producentnavne der indeholder et stednavn
+            t = t.replace(f" {producer} ", " ")
         for alias, region, country in aliases:
             if " " + re.sub(r"[^a-z0-9]+", " ", alias).strip() + " " in t:
                 return region, country

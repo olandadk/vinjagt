@@ -21,6 +21,7 @@ from statistics import median
 from .extract import to_points
 from .matching import ExtIndex
 
+GENEROUS = {"Luca Maroni": 92.0}  # kilde -> højeste point vi lader den give
 W_BEFORE = {"førpris": 1.0, "compare_at": 0.8, "vejledende": 0.5}
 W_MARKET, W_HISTORY, W_EXT_PRICE, W_SUSPECT = 1.0, 0.9, 0.7, 0.3
 
@@ -68,9 +69,15 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
                 seen[(c["source"], c["score"], c["scale"])].add(m["retailer_id"])
         items, num, den = [], 0.0, 0.0
         used: dict[tuple[str, bool], tuple[float, float]] = {}  # (kilde, oplyst af forhandler) -> (skala, point)
+        best_per_src: dict[str, tuple] = {}  # samme anmelder flere gange (fx to årgange/forhandlere): brug højeste
         for (src, score, scale), shops in seen.items():
             pts = to_points(score, scale)
+            if src not in best_per_src or pts > best_per_src[src][0]:
+                best_per_src[src] = (pts, score, scale, shops)
+        for src, (pts, score, scale, shops) in best_per_src.items():
             wgt = 0.9 if len(shops) >= 2 else 0.7
+            if src in GENEROUS:  # anmeldere med kendt generøs skala (fx Luca Maroni) tæller mindre og loftes
+                pts, wgt = min(pts, GENEROUS[src]), wgt * 0.5
             items.append({"s": src, "v": f"{score}/{scale}" if scale != 100 else f"{score} p", "pt": round(pts, 1),
                           "own": True, "n": len(shops)})
             used[(src, True)] = (scale, pts)
@@ -121,7 +128,12 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
         market_1 = median([m["price_1"] for m in others]) if others else None
         market_6 = median([m["price_6"] or m["price_1"] for m in others]) if others else None
         if market_1:
-            refs.append(("markedspris", market_1, W_MARKET))
+            # urealistisk stor forskel til de andre forhandlere tyder på et forkert match eller en fejlaflæst pris
+            if (market_1 - w["price_1"]) / market_1 > 0.6:
+                refs.append(("markedspris (usikker)", market_1, 0.3))
+                flags.append("markedspris usikker")
+            else:
+                refs.append(("markedspris", market_1, W_MARKET))
 
         hist = history.get(w["id"]) or {}
         if hist.get("n", 0) >= 14:

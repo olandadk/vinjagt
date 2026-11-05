@@ -69,6 +69,34 @@ class _UF:
             self.p[rb] = ra
 
 
+def _generic_words() -> frozenset[str]:
+    from . import extract as X
+    words = set()
+    for g, syns in X.GRAPE_SYNONYMS.items():
+        for s in [g] + syns:
+            words.update(re.sub(r"[^a-z0-9]+", " ", fold(s)).split())
+    for app, _ in X.APPELLATION_GRAPE:
+        words.update(re.sub(r"[^a-z0-9]+", " ", fold(app)).split())
+    for r, (c, al) in X.REGIONS.items():
+        for s in [r, c] + al:
+            words.update(re.sub(r"[^a-z0-9]+", " ", fold(s)).split())
+    words.update("rosso bianco tinto blanco rouge blanc reserva riserva crianza gran classico superiore cru premier "
+                 "grand vino vin wine red white rose dry trocken brut sec doux old vines vieilles vignes cuvee "
+                 "selection reserve estate".split())
+    return frozenset(words)
+
+
+_GENERIC: frozenset[str] | None = None
+
+
+def is_generic(tk: frozenset[str]) -> bool:
+    """Navne uden producent eller særpræg (kun drue, område og almindelige ord) matches ikke."""
+    global _GENERIC
+    if _GENERIC is None:
+        _GENERIC = _generic_words()
+    return len(tk) < 2 or all(t in _GENERIC for t in tk)
+
+
 def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
     """Returnerer {wine_id: group_id}. Samme vin (navn + årgang + størrelse) hos forskellige forhandlere."""
     uf = _UF()
@@ -83,8 +111,10 @@ def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
                 uf.union(by_gtin[g], wid)
             else:
                 by_gtin[g] = wid
-        blocks[(w.get("vintage") or 0, round(w.get("volume_cl") or 75), w.get("wine_type"))].append(
-            (wid, tokens(w["name"], w.get("producer"))))
+        tk = tokens(w["name"], w.get("producer"))
+        if is_generic(tk):
+            continue  # fx bare "Barolo" eller "Pinot Noir" – kan ikke sikkert matches med andre vine
+        blocks[(w.get("vintage") or 0, round(w.get("volume_cl") or 75), w.get("wine_type"))].append((wid, tk))
     # Prefix-filtrering: to navne med lighed >= threshold deler mindst `need` ord (Jaccard: threshold·|x|,
     # delmængde-reglen i similar(): (threshold-0.6)/0.4·|x|). Så er det nok at indeksere og slå op på de
     # len-need+1 sjældneste ord – samme resultat, men vine der kun deler fx 'chateau' sammenlignes ikke.

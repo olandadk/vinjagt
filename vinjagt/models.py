@@ -101,14 +101,26 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     factor = 75.0 / vol  # pr. 75 cl
     price_1 = round(unit * factor, 2)
     price_6 = round(X.price_for_n(unit, tiers, 6) * factor, 2)
+    if price_1 < 20:  # ingen 75 cl-flaske koster under 20 kr. – prisen er fejlaflæst
+        return None
     critic = p.critic or X.parse_critic_scores(f"{p.name}\n{desc}")
+    # Drue skal passe med farven. Står en tydelig drue i navnet, der modsiger kategorien, stoles der på navnet.
+    grape = X.detect_grape(p.name, p.categories, desc[:2500], wtype)
+    name_grapes = [g for _, g in X._grape_hits(p.name)]
+    if name_grapes and wtype in ("rød", "hvid") and not X.grape_fits(name_grapes[0], wtype, p.name) \
+            and not X.has_word(p.name, ["blanc", "blanco", "bianco", "white", "weiss", "rouge", "rosso", "tinto", "red"]):
+        wtype = "rød" if name_grapes[0] in X.RED_GRAPES else "hvid"
+        grape = name_grapes[0]
+    if not wtype and grape:  # ukendt type, men kendt drue -> farven følger druen
+        wtype = "rød" if grape in X.RED_GRAPES else ("hvid" if grape in X.WHITE_GRAPES else None)
+    if not grape and region == "Bourgogne" and wtype in ("rød", "hvid"):
+        grape = "Pinot Noir" if wtype == "rød" else "Chardonnay"
     return Wine(
         retailer_id=p.retailer_id, url=p.url, name=p.name.strip(), producer=(p.producer or None),
         vintage=p.vintage or X.parse_vintage(p.name), volume_cl=vol, wine_type=wtype,
         # beskrivelsen nævner ofte "levering i hele Danmark" – Danmark gælder kun fra navn/kategorier
-        # beskrivelsen nævner ofte "levering i hele Danmark" – Danmark gælder kun fra navn/kategorier
         country=country_hint, in_stock=p.in_stock,
-        grape=X.detect_grape(p.name, p.categories, desc[:2500]), region=region,
+        grape=grape, region=region,
         price_1=price_1, price_6=min(price_6, price_1),
         before_price=round(before * factor, 2) if before and before > unit else None,
         before_kind=before_kind if before and before > unit else None,

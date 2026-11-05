@@ -190,3 +190,21 @@ def test_mixed_cases_and_denmark():
     assert w.country == "New Zealand" and w.region == "Marlborough"
     w = normalize(Product("r", "u", "Skærsøgaard Solaris 2022", 189.0, categories=["Dansk vin"]))
     assert w.country == "Danmark"
+
+
+def test_data_review_fixes():
+    for n in ["Copenhagen Sparkling Tea Blå 0,375", "Zonin Limoneto Spritz", "White Negroni - Pakke", "Grillkassen",
+              "Periquita White Bag in Box 3 Liter", "VINTAGE 2026 PORT BOND CERTIFIKAT", "Siciliana 1921 Tasting Mix",
+              "Vin for begyndere: Txakoli - den lille kasse med de 3 flasker"]:
+        assert not X.is_wine(n, [], "rød"), n
+    assert X.is_wine("Pocas Vintage Port 2013 - I gavekasse", [], "dessert")
+    assert X.parse_pack_size('Champagne "Porte-Greffes" (3 fl.)') == 3
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "Fayolle Crozes Hermitage Les Sens Blanc", 200.0, categories=["Hvidvin"]))
+    assert w.wine_type == "hvid" and w.grape is None
+    w = normalize(Product("r", "u", "Casillero del Diablo Chardonnay Concha y Toro", 79.0, categories=["Rødvin"]))
+    assert (w.wine_type, w.grape, w.region, w.country) == ("hvid", "Chardonnay", None, "Chile")
+    assert normalize(Product("r", "u", "Vérité La Muse 2012", 3.0)) is None
+    assert X._canon_critic("Luca maroni") == "Luca Maroni" and X._canon_critic("VINOUS") == "Vinous"
+    from vinjagt.matching import is_generic, tokens
+    assert is_generic(tokens("Barolo")) and is_generic(tokens("Pinot Noir")) and not is_generic(tokens("Fontanafredda Barolo"))
