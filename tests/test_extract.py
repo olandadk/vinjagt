@@ -176,3 +176,17 @@ def test_region_from_description_must_match_country():
     w = normalize(Product("r", "u", "2018 Mount Mary, Quintet", 999.95, categories=["Australien"],
                           description="Inspireret af Bordeaux"))
     assert w.country == "Australien" and w.region is None
+
+
+def test_mixed_cases_and_denmark():
+    for n in ["Hygge i glasset – efterårssmagskassen – 6 økologiske vine", "Rondo Spritz-pakken",
+              "Black Week smagekasse 18 fl.", "Julekassen 2026"]:
+        assert X.is_wine(n, [], "rød") is False, n
+    for n in ["Yealands Sauvignon Blanc", "2022 Aphelion, Grenache Wait Vineyard", "Barolo 6 flasker"]:
+        assert X.is_wine(n, [], "rød") is True, n
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "Yealands Sauvignon Blanc TESTVINDER", 48.88,
+                          description="Testvinder i dansk avis. Levering i hele Danmark. Fra Marlborough, New Zealand."))
+    assert w.country == "New Zealand" and w.region == "Marlborough"
+    w = normalize(Product("r", "u", "Skærsøgaard Solaris 2022", 189.0, categories=["Dansk vin"]))
+    assert w.country == "Danmark"

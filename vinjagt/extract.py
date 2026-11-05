@@ -295,7 +295,7 @@ COUNTRIES = {
     "Sydafrika": ["sydafrika", "south africa", "stellenbosch", "swartland", "western cape", "paarl", "franschhoek"],
     "Ungarn": ["ungarn", "hungary", "tokaj", "tokaji", "villany"],
     "Grækenland": ["graekenland", "grækenland", "greece", "santorini", "nemea", "naoussa"],
-    "Danmark": ["danmark", "denmark", "dansk vin", "dansk"],
+    "Danmark": ["dansk vin", "danish wine", "danmark", "denmark"],  # kun fra navn/kategorier – se detect_country
     "Libanon": ["libanon", "lebanon", "bekaa"],
     "Georgien": ["georgien", "georgia", "kakheti"],
     "Slovenien": ["slovenien", "slovenia"],
@@ -335,19 +335,26 @@ def classify_type(name: str, categories: Iterable[str] = (), description: str = 
     return None
 
 
-def detect_country(*texts: str) -> str | None:
+def detect_country(*texts: str, exclude: Iterable[str] = ()) -> str | None:
     for text in texts:
         if not text:
             continue
         for country, words in COUNTRIES.items():
+            if country in exclude:
+                continue
             if has_word(text, words):
                 return country
     return None
 
 
+# Blandede kasser og pakker – også som sammensatte ord ("efterårssmagskassen", "Spritz-pakken", "6 økologiske vine")
+MIXED_RX = re.compile(r"smag[se]?kasse|smagepakke|vinpakke|vinkasse|blandet\s+kasse|mixkasse|-?pakken\b|"
+                      r"kassen\b|\bmix\b|\bsampler\b|\b\d{1,2}\s+(?:[a-zæøå]+\s+){0,2}vine\b|probierpaket|weinpaket", re.I)
+
+
 def is_wine(name: str, categories: Iterable[str] = (), wine_type: str | None = None) -> bool:
     cats = " ".join(categories or [])
-    if has_word(name, NON_WINE):
+    if has_word(name, NON_WINE) or MIXED_RX.search(name):
         return False
     if wine_type:
         return True

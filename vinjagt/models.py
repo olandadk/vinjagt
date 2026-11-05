@@ -69,7 +69,7 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     wtype = X.classify_type(p.name, p.categories, desc)
     if not X.is_wine(p.name, p.categories, wtype):
         # Vinhandlere navngiver ofte vine uden 'vin'/drue i navnet: en årgang og ingen ikke-vin-ord er nok
-        if X.has_word(p.name, X.NON_WINE) or not (p.vintage or X.parse_vintage(p.name)):
+        if X.has_word(p.name, X.NON_WINE) or X.MIXED_RX.search(p.name) or not (p.vintage or X.parse_vintage(p.name)):
             return None
 
     vol = p.volume_cl or X.parse_volume_cl(p.name) or X.parse_volume_cl(desc[:400]) or 75.0
@@ -92,6 +92,8 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     country_hint = p.country or X.detect_country(p.name, cats) or region_country
     if region and country_hint and region_country != country_hint:
         region, region_country = None, None
+    if not country_hint:  # sidste udvej: landet fra beskrivelsen (aldrig Danmark – se nedenfor)
+        country_hint = X.detect_country(desc[:800], exclude=("Danmark",))
     if not region and country_hint:
         r2, c2 = X.detect_region(desc[:800], country=country_hint)
         if r2 and c2 == country_hint:
@@ -103,7 +105,9 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     return Wine(
         retailer_id=p.retailer_id, url=p.url, name=p.name.strip(), producer=(p.producer or None),
         vintage=p.vintage or X.parse_vintage(p.name), volume_cl=vol, wine_type=wtype,
-        country=(country_hint or X.detect_country(desc[:800])), in_stock=p.in_stock,
+        # beskrivelsen nævner ofte "levering i hele Danmark" – Danmark gælder kun fra navn/kategorier
+        # beskrivelsen nævner ofte "levering i hele Danmark" – Danmark gælder kun fra navn/kategorier
+        country=country_hint, in_stock=p.in_stock,
         grape=X.detect_grape(p.name, p.categories, desc[:2500]), region=region,
         price_1=price_1, price_6=min(price_6, price_1),
         before_price=round(before * factor, 2) if before and before > unit else None,
