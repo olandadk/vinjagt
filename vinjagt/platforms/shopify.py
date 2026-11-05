@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import time
 from urllib.parse import urlparse
 from typing import Iterator
 
@@ -40,14 +39,12 @@ class Throttled(Exception):
 
 
 def _get_page(client, url: str):
-    """Hent en JSON-side; ved vedvarende 429 ventes 2 minutter og prøves én gang til – derefter gives op."""
-    for attempt in range(2):
-        data, r = client.get_json(url)
-        if r is None or r.status_code != 429:
-            return data, r
-        if attempt < 1:
-            time.sleep(120)
-    raise Throttled("Shopify bremser scanneren (HTTP 429) – prøver igen næste nat")
+    """Hent en JSON-side. Shopify afviser erklærede robotter på JSON-adresserne med 429 –
+    så giver vi straks op, og scanningen fortsætter via butikkens almindelige websider."""
+    data, r = client.get_json(url)
+    if r is not None and r.status_code == 429:
+        raise Throttled("Shopify afviser robotter på produkt-API'et (HTTP 429)")
+    return data, r
 
 
 def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:

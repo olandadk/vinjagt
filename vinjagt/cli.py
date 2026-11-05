@@ -53,6 +53,20 @@ def _scan_one(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     return _scan_one_inner(cfg, r, platform, db_for_pages)
 
 
+def _shopify_with_fallback(cfg, client, r, db_for_pages, info):
+    """Shopify-API'et først; afvises robotten (429), læses butikkens almindelige sider i stedet."""
+    from .platforms import generic, shopify
+    try:
+        yield from shopify.scan(client, r, int(cfg["max_products_api"]), info=info)
+        return
+    except shopify.Throttled:
+        log.info("%s: Shopify-API'et afviser robotter – læser butikkens websider i stedet", r["id"])
+    info["via"] = "websider"
+    limit = int(r.get("max_pages") or min(int(cfg["max_pages_generic"]), 300))
+    bg = int(r.get("background_pages", min(int(cfg["background_pages"]), 120)))
+    yield from generic.scan(client, r, limit, db=db_for_pages, background=bg, info=info)
+
+
 def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     t0 = time.time()
     client = _client(cfg)
@@ -70,14 +84,16 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             return r, None, [], 0, "ingen understøttet platform/sitemap fundet", time.time() - t0, {}
         mod = PLATFORMS[platform]
         if platform == "shopify":
-            client.retries = 1  # 429 håndteres i shopify-modulet; giv hurtigt op ved blokering
+            client.retries = 1
             if float(cfg["request_delay"]) > 0:
-                client.delay = max(client.delay, 5.0)
+                client.delay = max(client.delay, 3.0)
         info: dict = {}
         if platform == "generic":
             limit = int(r.get("max_pages") or cfg["max_pages_generic"])
             bg = int(r.get("background_pages", cfg["background_pages"]))
             it = mod.scan(client, r, limit, db=db_for_pages, background=bg, info=info)
+        elif platform == "shopify":
+            it = _shopify_with_fallback(cfg, client, r, db_for_pages, info)
         else:
             it = mod.scan(client, r, int(cfg["max_products_api"]), info=info)
         wines, n = [], 0
@@ -223,7 +239,15 @@ def cmd_offers(cfg, only=None):
         if plat == "shopify":
             from .platforms import shopify
             info: dict = {}
-            n = len(shopify.offer_handles(client, r["url"].rstrip("/"), r, info))
+            try:
+                n = len(shopify.offer_handles(client, r["url"].rstrip("/"), r, info))
+            except shopify.Throttled:
+                pages = [r["url"].rstrip("/") + u if u.startswith("/") else u for u in r.get("offer_urls") or []] + \
+                    generic.discover_offer_pages(client, r["url"].rstrip("/"), urlparse(r["url"]).netloc)
+                print(f"{r['name']} (shopify, læses via websider):")
+                for p in pages or ["  (ingen tilbudsside fundet – kun varer med førpris)"]:
+                    print(f"   {p}")
+                continue
             print(f"{r['name']} (shopify): {n} varer i tilbudssamlinger + varer med førpris")
             for p in info.get("offer_pages") or []:
                 print(f"   {p}")

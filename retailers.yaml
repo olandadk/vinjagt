@@ -49,7 +49,7 @@
   city: Skovlunde
   note: Importør og webshop, grundlagt 1993
   offer_urls: [/collections/tilbud]
-  request_delay: 10         # Shopify bremser ved hurtige kald (HTTP 429)
+  request_delay: 4          # Shopify-butik: læses roligt
 
 - name: Bichel Vine
   url: https://www.bichel.dk
@@ -121,7 +121,7 @@
 - name: Den Sidste Flaske
   url: https://densidsteflaske.dk
   note: Shopify-butik – tilbud genkendes på førpris og tilbudssamling
-  request_delay: 10         # Shopify bremser ved hurtige kald (HTTP 429)
+  request_delay: 4          # Shopify-butik: læses roligt
 
 - name: Jysk Vin
   url: https://www.jyskvin.dk

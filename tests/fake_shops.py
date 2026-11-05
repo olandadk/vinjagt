@@ -183,12 +183,25 @@ class NoSitemap(Generic):
         return super().do_GET()
 
 
+class ShopifyBlocked(Generic):
+    """Shopify-butik der afviser robotter på /products.json (429), men viser almindelige sider."""
+
+    def do_GET(self):
+        u = urlparse(self.path)
+        if u.path.endswith("products.json"):
+            self.send_response(429); self.send_header("Retry-After", "1"); self.end_headers(); return
+        if u.path == "/":
+            return self._send("<html><head><script src='https://cdn.shopify.com/x.js'></script></head><body>"
+                              "<nav><a href='/tilbud'>Tilbud</a></nav></body></html>", "text/html")
+        return super().do_GET()
+
+
 _GENERIC = _shop_prices(3)
 
 
 def start():
     servers = []
-    for port, h in ((8701, Shopify), (8702, Woo), (8703, Generic), (8704, NoSitemap)):
+    for port, h in ((8701, Shopify), (8702, Woo), (8703, Generic), (8704, NoSitemap), (8705, ShopifyBlocked)):
         s = ThreadingHTTPServer(("127.0.0.1", port), h)
         threading.Thread(target=s.serve_forever, daemon=True).start()
         servers.append(s)

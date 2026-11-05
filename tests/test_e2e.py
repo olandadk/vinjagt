@@ -21,6 +21,7 @@ def test_end_to_end(tmp_path):
             {"name": "Shop Woo", "url": "http://127.0.0.1:8702", "offer_urls": ["/produkt-kategori/aktuelle-tilbud/"]},
             {"name": "Shop Generisk", "url": "http://127.0.0.1:8703"},
             {"name": "Shop Uden Sitemap", "url": "http://127.0.0.1:8704"},
+            {"name": "Shop Shopify Blokeret", "url": "http://127.0.0.1:8705"},
         ]))
         cfg = {"data_dir": str(tmp_path / "data"), "site_dir": str(tmp_path / "site"), "request_delay": 0,
                "retailers_file": str(tmp_path / "retailers.yaml"),
@@ -42,10 +43,11 @@ def test_end_to_end(tmp_path):
         assert status["shop-shopify"][0] == "shopify"
         assert status["shop-woo"][0] == "woocommerce"
         assert status["shop-generisk"][0] == "generic"
+        assert status["shop-shopify-blokeret"][0] == "shopify" and status["shop-shopify-blokeret"][1] >= 7, status  # tilbudsside via websider
         assert status["shop-uden-sitemap"][0] == "generic"
         n_offer = sum(1 for w in fake_shops._GENERIC if w["before"])
         assert status["shop-uden-sitemap"][1] == n_offer, status  # kun tilbudsprodukterne
-        assert all(n > 10 for k, (_, n) in status.items() if k != "shop-uden-sitemap"), status
+        assert all(n > 10 for k, (_, n) in status.items() if k not in ("shop-uden-sitemap", "shop-shopify-blokeret")), status
         offers = db.execute("SELECT offer_products, offer_pages FROM retailers WHERE id='shop-generisk'").fetchone()
         n_before = sum(1 for w in fake_shops._GENERIC if w["before"])
         assert offers[0] >= n_before and "/tilbud" in offers[1], offers  # + 6-flaskestilbud
@@ -62,7 +64,7 @@ def test_end_to_end(tmp_path):
         deals = json.loads((site / "data" / "deals.json").read_text())
         shops = json.loads((site / "data" / "retailers.json").read_text())
         assert (site / "index.html").exists() and (site / "forhandlere.html").exists()
-        assert len(shops) == 4
+        assert len(shops) == 5
         assert len(deals) > 10
         d = next(x for x in deals if "Barolo" in x["n"])
         assert d["mn"] >= 1 and d["m1"]  # matchet på tværs af shops
