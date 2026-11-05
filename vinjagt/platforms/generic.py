@@ -274,7 +274,7 @@ def _has_lxml() -> bool:
 
 OFFER_RX = re.compile(
     r"tilbud|udsalg|kampagne|nedsat|spar-|/spar\b|outlet|sale\b|/sale|black-?friday|black-?week|cyber|restsalg|"
-    r"lagersalg|ugens|maanedens|månedens|deals?\b|offers?\b|angebot|sonderangebot|reduziert|schnaeppchen|schnäppchen|aktion|rabatt|prisfald|skarpe-?priser|bundpris|kassetilbud|maengdepris|mængdepris|spotpris|nedsatte|prisbombe|super-?pris", re.I)
+    r"lagersalg|ugens|maanedens|månedens|deals?\b|offers?\b|angebot|sonderangebot|reduziert|schnaeppchen|schnäppchen|aktion|rabatt|prisfald|skarpe-?priser|bundpris|kassetilbud|udloeber-?snart|udløber-?snart|sidste-?chance|maengdepris|mængdepris|spotpris|nedsatte|prisbombe|super-?pris", re.I)
 OFFER_SKIP = re.compile(r"betingelser|vilkaar|vilkår|nyhedsbrev|newsletter|gavekort|login|konto|kurv|cart|blog|cookie", re.I)
 PAGINATION_RX = re.compile(r"[?&](?:p|page|side|pg|sida)=(\d+)|/(?:page|side)[/-](\d+)", re.I)
 

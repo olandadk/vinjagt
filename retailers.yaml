@@ -123,3 +123,7 @@
   note: Shopify-butik – tilbud genkendes på førpris og tilbudssamling
   request_delay: 10         # Shopify bremser ved hurtige kald (HTTP 429)
 
+- name: Jysk Vin
+  url: https://www.jyskvin.dk
+  offer_urls: [/udloeber-snart]   # "Udløber snart"-tilbud
+
