@@ -34,8 +34,7 @@ def _qty_from_variant(title: str) -> int | None:
 COMMON_OFFER_COLLECTIONS = ["tilbud", "sale", "udsalg"]
 
 
-class Throttled(Exception):
-    """Shopify bremser fortsat scanneren (HTTP 429)."""
+from ..http import Throttled  # noqa: E402  (samme undtagelse som HTTP-klienten)
 
 
 def _get_page(client, url: str):
@@ -44,7 +43,7 @@ def _get_page(client, url: str):
     data, r = client.get_json(url)
     if r is not None and r.status_code == 429:
         raise Throttled("Shopify afviser robotter på produkt-API'et (HTTP 429)")
-    return data, r
+    return data, r  # (HTTP-klienten rejser selv Throttled efter to 429-svar)
 
 
 def offer_handles(client, base: str, retailer: dict, info: dict) -> set[str]:

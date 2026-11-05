@@ -201,6 +201,10 @@ def cmd_scan(cfg, db, only: set[str] | None = None, force_detect=False):
                 for w in wines:
                     db.save_wine(w, wine_key(w.name, w.producer))
                 status = "ok" if not err and wines else ("fejl" if err else "ingen vine fundet")
+                if info.get("error") and not err:
+                    err = info["error"]  # delvis scanning – vinene gemmes, men årsagen vises
+                    if not wines:
+                        status = "fejl"
                 db.finish_scan(r["id"], status, n, len(wines), err, dur, info)
             total += len(wines)
             log.info("%-28s %-11s %5d produkter, %5d vine, %4d på tilbud (%.0fs)%s", r["name"], platform or "-", n,

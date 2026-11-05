@@ -17,6 +17,10 @@ class Blocked(Exception):
     """URL er ikke tilladt af robots.txt."""
 
 
+class Throttled(Exception):
+    """Værten har svaret 429 (for mange forespørgsler) to gange – opgiv den i denne kørsel."""
+
+
 class PoliteClient:
     def __init__(self, user_agent: str, delay: float = 1.5, timeout: float = 25, retries: int = 3,
                  respect_robots: bool = True):
@@ -39,6 +43,7 @@ class PoliteClient:
         self._lock = threading.Lock()
         self.ua_token = user_agent.split("/")[0]
         self.requests_made = 0
+        self._n429: dict[tuple, int] = {}
 
     # -------------------------------------------------- robots.txt
     def robots(self, url: str) -> urllib.robotparser.RobotFileParser | None:
@@ -91,15 +96,32 @@ class PoliteClient:
         if wait > 0:
             time.sleep(wait)
 
+    MAX_429 = 2  # højst to forsøg ved 429 – derefter opgives værten i denne kørsel
+
+    @staticmethod
+    def _key429(url: str) -> tuple:
+        p = urlparse(url)  # JSON-API'er og almindelige sider tælles hver for sig (Shopify afviser kun API'et)
+        return (p.netloc, p.path.endswith(".json"))
+
     def get(self, url: str, **kw) -> requests.Response:
         if not self.allowed(url):
             raise Blocked(url)
+        key = self._key429(url)
+        if self._n429.get(key, 0) >= self.MAX_429:
+            raise Throttled(urlparse(url).netloc)
         err: Exception | None = None
         for attempt in range(self.retries + 1):
             self._wait(url)
             try:
                 self.requests_made += 1
                 r = self.s.get(url, timeout=self.timeout, **kw)
+                if r.status_code == 429:
+                    self._n429[key] = self._n429.get(key, 0) + 1
+                    if self._n429[key] >= self.MAX_429:
+                        log.info("%s svarede 429 igen – springer resten over i denne kørsel", urlparse(url).netloc)
+                        raise Throttled(urlparse(url).netloc)
+                else:
+                    self._n429[key] = 0
                 if r.status_code in (429, 503) and attempt < self.retries:
                     ra = r.headers.get("Retry-After", "")
                     wait = int(ra) if ra.isdigit() else 15 * (attempt + 1)

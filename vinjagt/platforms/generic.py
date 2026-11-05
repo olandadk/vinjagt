@@ -15,7 +15,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from .. import extract as X
-from ..http import Blocked
+from ..http import Blocked, Throttled
 from ..models import Product
 
 log = logging.getLogger(__name__)
@@ -459,6 +459,10 @@ def scan(client, retailer: dict, max_products: int = 400, db=None, background: i
     for u in order:
         try:
             r = client.get(u)
+        except Throttled:
+            info["error"] = "butikken bremser scanneren (HTTP 429) – resten tages næste nat"
+            log.info("%s: bremset (429) – stopper efter %d sider", retailer["id"], order.index(u))
+            break
         except Blocked:
             if db:
                 db.mark_page(u, retailer["id"], False, "robots")
