@@ -54,7 +54,7 @@ class DB:
         self.c.row_factory = sqlite3.Row
         self.c.executescript(SCHEMA)
         for table, col, typ in (("wines", "on_offer", "INTEGER DEFAULT 0"), ("wines", "grape", "TEXT"),
-                                ("wines", "region", "TEXT"), ("retailers", "offer_pages", "TEXT"),
+                                ("wines", "region", "TEXT"), ("retailers", "offer_pages", "TEXT"), ("retailers", "last_ok", "REAL"),
                                 ("retailers", "offer_products", "INTEGER DEFAULT 0")):
             cols = {r[1] for r in self.c.execute(f"PRAGMA table_info({table})")}
             if col not in cols:
@@ -80,10 +80,15 @@ class DB:
     def finish_scan(self, rid: str, status: str, products: int, wines: int, error: str | None, duration: float,
                     info: dict | None = None):
         info = info or {}
-        self.c.execute("UPDATE retailers SET last_scan=?, last_status=?, products=?, wines=?, error=?, duration=?, "
-                       "offer_pages=?, offer_products=? WHERE id=?",
-                       (time.time(), status, products, wines, error, duration,
-                        json.dumps(info.get("offer_pages") or []), info.get("offer_products"), rid))
+        if status == "ok":
+            self.c.execute("UPDATE retailers SET last_scan=?, last_ok=?, last_status=?, products=?, wines=?, error=?, "
+                           "duration=?, offer_pages=?, offer_products=? WHERE id=?",
+                           (time.time(), time.time(), status, products, wines, error, duration,
+                            json.dumps(info.get("offer_pages") or []), info.get("offer_products"), rid))
+        else:
+            # Fejl: behold tallene fra seneste vellykkede scanning – vinene vises stadig på siden
+            self.c.execute("UPDATE retailers SET last_scan=?, last_status=?, error=?, duration=? WHERE id=?",
+                           (time.time(), status, error, duration, rid))
         self.commit()
 
     def retailers(self):

@@ -73,11 +73,19 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
     if r.get("request_delay"):
         client.delay = float(r["request_delay"])
     try:
-        try:  # hurtigt tjek af om shoppen overhovedet svarer
-            client._wait(r["url"])
-            client.s.head(r["url"], timeout=min(15, float(cfg["timeout"])), allow_redirects=True)
-        except Exception as e:  # noqa: BLE001
-            return r, platform, [], 0, f"ikke tilgængelig ({type(e).__name__})", time.time() - t0, {}
+        err = None
+        for attempt in range(3):  # hurtigt tjek af om shoppen svarer – prøv igen ved midlertidige netværksfejl
+            try:
+                client._wait(r["url"])
+                client.s.head(r["url"], timeout=min(15, float(cfg["timeout"])), allow_redirects=True)
+                err = None
+                break
+            except Exception as e:  # noqa: BLE001
+                err = e
+                if attempt < 2:
+                    time.sleep(30 if float(cfg["request_delay"]) > 0 else 0)
+        if err is not None:
+            return r, platform, [], 0, f"ikke tilgængelig ({type(err).__name__})", time.time() - t0, {}
         if not platform:
             platform = detect(client, r["url"])
         if not platform:
@@ -141,6 +149,25 @@ class _LockedDB:
             self.db.mark_page(*a)
 
 
+def _internet_ok(cfg, rs, tries: int = 10) -> bool:
+    """Kan Pi'en nå mindst én forhandler? Venter op til ~10 minutter på at nettet kommer igen."""
+    import requests
+    if not rs:
+        return True  # intet at scanne
+    urls = [r["url"] for r in rs[:4]]
+    for attempt in range(tries):
+        for u in urls:
+            try:
+                requests.head(u, timeout=10, allow_redirects=True, headers={"User-Agent": cfg["user_agent"]})
+                return True
+            except requests.RequestException:
+                continue
+        if attempt < tries - 1:
+            log.warning("Ingen forbindelse til forhandlerne – prøver igen om 60 s (%d/%d)", attempt + 1, tries)
+            time.sleep(60)
+    return False
+
+
 def cmd_scan(cfg, db, only: set[str] | None = None, force_detect=False):
     import threading
     lock = threading.Lock()
@@ -150,6 +177,9 @@ def cmd_scan(cfg, db, only: set[str] | None = None, force_detect=False):
         mail.setdefault(ml["retailer_id"], []).append(ml["url"])
     for r in rs:
         r["_mail_urls"] = mail.get(r["id"], [])
+    if not _internet_ok(cfg, rs):
+        log.error("Ingen internetforbindelse – scanningen springes over (forhandlernes status er uændret)")
+        return
     jobs = []
     for r in rs:
         db.upsert_retailer(r)

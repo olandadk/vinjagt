@@ -51,7 +51,7 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
             "id": r["id"], "name": r["name"], "url": r["url"], "city": r.get("city"), "note": r.get("note"),
             "foreign": bool(r.get("foreign")), "currency": r.get("currency") or "DKK",
             "enabled": r.get("enabled", True), "platform": x.get("platform") or r.get("platform"),
-            "last_scan": _iso(x.get("last_scan")), "status": x.get("last_status") or ("deaktiveret" if not r.get("enabled", True) else "ikke scannet"),
+            "last_scan": _iso(x.get("last_scan")), "last_ok": _iso(x.get("last_ok")), "status": x.get("last_status") or ("deaktiveret" if not r.get("enabled", True) else "ikke scannet"),
             "products": x.get("products") or 0, "wines": x.get("wines") or 0, "deals": deal_count.get(r["id"], 0),
             "error": x.get("error"), "offer_products": x.get("offer_products") or 0,
             "offer_pages": json.loads(x.get("offer_pages") or "[]"),

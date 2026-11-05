@@ -55,7 +55,7 @@
       <td class="num">${s.wines.toLocaleString("da-DK")}</td>
       <td class="num" title="${V.esc((s.offer_pages || []).join("\n") || "Ingen tilbudsside fundet")}">${(s.offer_products || 0).toLocaleString("da-DK")}</td>
       <td class="num"><a href="index.html#shop=${encodeURIComponent(s.id)}">${s.deals}</a></td>
-      <td class="hide-m">${V.when(s.last_scan)}</td></tr>`).join("");
+      <td class="hide-m">${V.when(s.last_scan)}${s.status !== "ok" && s.last_ok ? `<div class="err">tal fra ${V.when(s.last_ok)}</div>` : ""}</td></tr>`).join("");
   }
   document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
     dir = key === th.dataset.k ? -dir : (["wines", "deals", "offer_products"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();
