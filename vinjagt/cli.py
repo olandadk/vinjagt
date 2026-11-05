@@ -405,8 +405,11 @@ def cmd_why(cfg, db, url: str):
         "" if shown else (" – ikke et forhandlertilbud" if not w["on_offer"] else " – rabatten er for lille / ingen troværdig reference")))
 
 
-def cmd_mail(cfg, db, verbose=False):
+def cmd_mail(cfg, db, verbose=False, reprocess=False):
     from . import mail
+    if reprocess:  # læs mails uden vin-links igen (fx efter en ny forhandler er tilføjet)
+        db.c.execute("DELETE FROM mail_seen WHERE links=0")
+        db.commit()
     if not (cfg.get("mail") or {}).get("enabled"):
         if verbose:
             print("Nyhedsbreve er slået fra – se 'mail:' i config.yaml")
@@ -440,6 +443,7 @@ def main(argv=None):
     ap.add_argument("--config")
     ap.add_argument("--port", type=int, default=8080)
     ap.add_argument("--redetect", action="store_true", help="find platform igen for alle forhandlere")
+    ap.add_argument("--reprocess", action="store_true", help="mail: læs mails uden vin-links igen")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args(argv)
 
@@ -459,7 +463,7 @@ def main(argv=None):
     only = set(a.only.split(",")) if a.only else None
     from . import publish, site
     if a.command in ("run", "mail"):
-        cmd_mail(cfg, db, verbose=a.command == "mail")
+        cmd_mail(cfg, db, verbose=a.command == "mail", reprocess=a.reprocess)
     if a.command in ("run", "scan"):
         cmd_scan(cfg, db, only, a.redetect)
     if a.command == "detect":
