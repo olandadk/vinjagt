@@ -127,3 +127,8 @@
   url: https://www.jyskvin.dk
   offer_urls: [/udloeber-snart]   # "Udløber snart"-tilbud
 
+- name: SPS Wine
+  url: https://www.spswine.dk
+  note: Økologisk og biodynamisk vin
+  offer_urls: [/tilbud-paa-oekologisk-og-biodynamisk-vin/]
+
