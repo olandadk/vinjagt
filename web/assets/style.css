@@ -25,7 +25,7 @@ main.wrap{padding:18px 20px 60px}
   display:grid;grid-template-columns:repeat(12,1fr);gap:10px 12px;position:sticky;top:0;z-index:5}
 .filters label{min-width:0;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
 .filters input,.filters select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
-.f-search{grid-column:span 3}.f-sort{grid-column:span 3}.f-country,.f-shop,.f-price{grid-column:span 2}
+.f-search{grid-column:span 2}.f-sort{grid-column:span 2}.f-country,.f-grape,.f-shop,.f-price{grid-column:span 2}
 .f-price{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;min-width:0}
 .f-price div{display:flex;gap:6px}
 .lbl{font-size:12px;color:var(--muted)}
@@ -101,7 +101,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
 @media (max-height:800px){.filters{position:static}}
 @media (max-width:900px){
   .filters{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .f-search,.f-sort,.f-country,.f-shop,.f-price{grid-column:span 1}
+  .f-search,.f-sort,.f-country,.f-grape,.f-shop,.f-price{grid-column:span 1}
   .f-search{grid-column:1}
   .ftoggle{display:block;align-self:end;font:inherit;font-size:14px;padding:7px 12px;border-radius:8px;border:1px solid var(--wine);background:transparent;color:var(--wine);cursor:pointer}
   .ftoggle.active{background:var(--wine);color:#fff}

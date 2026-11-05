@@ -1,6 +1,6 @@
 const V = {
   types: [["rød","Rød"],["hvid","Hvid"],["rosé","Rosé"],["mousserende","Mousserende"],["dessert","Dessert/hedvin"],["orange","Orange"]],
-  kr: n => n == null ? "–" : n.toLocaleString("da-DK", {minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2}) + " kr.",
+  kr: n => n == null ? "–" : Number(n).toLocaleString("da-DK", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " kr.",
   esc: s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),
   typeColor: t => `var(--t-${t || "rød"})`,
   typeName: t => (V.types.find(x => x[0] === t) || [, "Ukendt type"])[1],

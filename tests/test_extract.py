@@ -150,3 +150,19 @@ def test_history_summary(tmp_path):
     assert h["n"] == 39 and h["med90"] == 130 and h["min30"] == 100 and h["lo90"] == 100
     assert h["since"] == (date.today() - timedelta(days=4)).isoformat()
     assert h["weeks"][-1] == 100 and h["weeks"][-6] == 130 and h["weeks"][0] is None
+
+
+def test_grape_and_region():
+    assert X.detect_grape("2021 Brunello di Montalcino Cordella") == "Sangiovese"
+    assert X.detect_grape("Fontanafredda Barolo DOCG 2019") == "Nebbiolo"
+    assert X.detect_grape("Penfolds Bin 389 Cabernet Shiraz") == "Cabernet Sauvignon"
+    assert X.detect_grape("Grauburgunder trocken 2023") == "Pinot Gris"
+    assert X.detect_grape("Vino Nobile di Montepulciano 2020") == "Sangiovese"
+    assert X.detect_grape("Château Y 2019", [], "Blend af 85% Merlot og 15% Cabernet Franc") == "Merlot"
+    assert X.detect_grape("Domaine Gramenon La Sagesse 2021") is None
+    assert X.detect_region("2024 Olim Bauda Barbera d'Asti DOCG") == ("Piemonte", "Italien")
+    assert X.detect_region("Château X Pauillac 2018") == ("Bordeaux", "Frankrig")
+    assert X.detect_region("Cloudy Bay Sauvignon Blanc Marlborough") == ("Marlborough", "New Zealand")
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "2021 Brunello di Montalcino Cordella", 324.95))
+    assert (w.grape, w.region, w.country) == ("Sangiovese", "Toscana", "Italien")

@@ -50,6 +50,8 @@ class Wine:
     image: str | None
     gtin: str | None
     on_offer: bool = False
+    grape: str | None = None
+    region: str | None = None
 
 
 def normalize(p: Product, fx: float = 1.0) -> Wine | None:
@@ -83,6 +85,9 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     if not before:
         before, before_kind = X.parse_before_price(desc, unit)
 
+    region, region_country = X.detect_region(p.name, " | ".join(p.categories), desc[:800])
+    if p.country and region_country and p.country != region_country:
+        region = None  # regionen passer ikke med forhandlerens land – stol på forhandleren
     factor = 75.0 / vol  # pr. 75 cl
     price_1 = round(unit * factor, 2)
     price_6 = round(X.price_for_n(unit, tiers, 6) * factor, 2)
@@ -90,7 +95,8 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     return Wine(
         retailer_id=p.retailer_id, url=p.url, name=p.name.strip(), producer=(p.producer or None),
         vintage=p.vintage or X.parse_vintage(p.name), volume_cl=vol, wine_type=wtype,
-        country=p.country or X.detect_country(text, desc[:800]), in_stock=p.in_stock,
+        country=(p.country or region_country or X.detect_country(text, desc[:800])), in_stock=p.in_stock,
+        grape=X.detect_grape(p.name, p.categories, desc[:2500]), region=region,
         price_1=price_1, price_6=min(price_6, price_1),
         before_price=round(before * factor, 2) if before and before > unit else None,
         before_kind=before_kind if before and before > unit else None,

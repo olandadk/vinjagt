@@ -1,7 +1,7 @@
 (async () => {
   const $ = id => document.getElementById(id);
   const PAGE = 60;
-  const DEFAULTS = {q: "", sort: "s", country: "", shop: "", min: "", max: "", minq: "", types: [], basis: "1",
+  const DEFAULTS = {q: "", sort: "s", country: "", grape: "", shop: "", min: "", max: "", minq: "", types: [], basis: "1",
                     own: true, rated: false, cheapest: false, multi: false, fresh: false, favs: false};
   const st = {...DEFAULTS, types: new Set(), shown: PAGE};
   const CHIPS = ["own", "rated", "cheapest", "multi", "fresh", "favs"];
@@ -20,7 +20,7 @@
   const fold = s => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const built = meta ? Date.parse(meta.generated) : Date.now();
   for (const d of deals) {
-    d._s = fold([d.n, d.pr, d.c, shopName[d.r], d.y, d.t, V.typeName(d.t)].join(" "));
+    d._s = fold([d.n, d.pr, d.c, d.rg, d.gr, shopName[d.r], d.y, d.t, V.typeName(d.t)].join(" "));
     d._new = !!d.sd && built - Date.parse(d.sd) < 36 * 3600e3;  // tilbuddet startede inden for det seneste døgn
   }
 
@@ -33,6 +33,8 @@
   // filtre
   const countries = [...new Set(deals.map(d => d.c).filter(Boolean))].sort((a, b) => a.localeCompare(b, "da"));
   $("country").insertAdjacentHTML("beforeend", countries.map(c => `<option>${V.esc(c)}</option>`).join(""));
+  const grapes = [...new Set(deals.map(d => d.gr).filter(Boolean))].sort((a, b) => a.localeCompare(b, "da"));
+  $("grape").insertAdjacentHTML("beforeend", grapes.map(g => `<option>${V.esc(g)}</option>`).join(""));
   const shopIds = [...new Set(deals.map(d => d.r))].sort((a, b) => (shopName[a] || a).localeCompare(shopName[b] || b, "da"));
   $("shop").insertAdjacentHTML("beforeend", shopIds.map(s => `<option value="${V.esc(s)}">${V.esc(shopName[s] || s)}</option>`).join(""));
   $("types").innerHTML = V.types.map(([k, n]) =>
@@ -40,15 +42,15 @@
 
   // tilstand i URL'en, så et filter kan deles/bogmærkes
   const url = new URLSearchParams(location.hash.slice(1));
-  for (const k of ["q", "sort", "country", "shop", "min", "max", "minq", "basis"]) if (url.get(k)) st[k] = url.get(k);
+  for (const k of ["q", "sort", "country", "grape", "shop", "min", "max", "minq", "basis"]) if (url.get(k)) st[k] = url.get(k);
   for (const k of CHIPS) if (k !== "own") st[k] = url.get(k) === "1";
   st.own = url.get("own") !== "0";
   (url.get("types") || "").split(",").filter(Boolean).forEach(t => st.types.add(t));
 
-  const active = () => ["q", "country", "shop", "min", "max", "minq"].filter(k => st[k]).length + st.types.size +
+  const active = () => ["q", "country", "grape", "shop", "min", "max", "minq"].filter(k => st[k]).length + st.types.size +
     CHIPS.filter(k => st[k] !== DEFAULTS[k]).length + (st.sort !== DEFAULTS.sort) + (st.basis !== DEFAULTS.basis);
   const sync = () => {
-    for (const k of ["q", "sort", "country", "shop", "min", "max", "minq"]) $(k).value = st[k];
+    for (const k of ["q", "sort", "country", "grape", "shop", "min", "max", "minq"]) $(k).value = st[k];
     document.querySelectorAll("#types .chip").forEach(b => b.classList.toggle("on", st.types.has(b.dataset.t)));
     document.querySelectorAll("#basis button").forEach(b => b.classList.toggle("on", b.dataset.v === st.basis));
     for (const k of CHIPS) $(k).classList.toggle("on", st[k]);
@@ -60,7 +62,7 @@
   };
   const save = () => {
     const p = new URLSearchParams();
-    for (const k of ["q", "country", "shop", "min", "max", "minq"]) if (st[k]) p.set(k, st[k]);
+    for (const k of ["q", "country", "grape", "shop", "min", "max", "minq"]) if (st[k]) p.set(k, st[k]);
     if (st.sort !== "s") p.set("sort", st.sort);
     if (st.basis !== "1") p.set("basis", st.basis);
     for (const k of CHIPS) if (k !== "own" && st[k]) p.set(k, "1");
@@ -84,6 +86,7 @@
   // alle filtre undtagen vintype – så knapperne kan vise, hvor mange hver type giver med de øvrige filtre
   function matches(d, words, min, max, minq) {
     return (!st.country || d.c === st.country) &&
+      (!st.grape || d.gr === st.grape) &&
       (!st.shop || d.r === st.shop) &&
       (!min || price(d) >= min) &&
       (!max || price(d) <= max) &&
@@ -165,7 +168,7 @@
         <h3 class="name"><a href="${V.esc(d.u)}" target="_blank" rel="noopener">${V.esc(d.n)}</a>
           <button class="fav${fav ? " on" : ""}" data-u="${V.esc(d.u)}" aria-pressed="${fav}" title="${fav ? "Fjern fra favoritter" : "Gem som favorit"}">${fav ? "♥" : "♡"}</button></h3>
         <div class="sub"><span class="tdot" style="background:${V.typeColor(d.t)}"></span>${V.typeName(d.t)}
-          ${d.y ? `· ${d.y}` : ""} ${d.c ? `· ${V.esc(d.c)}` : ""} ${d.pr ? `· ${V.esc(d.pr)}` : ""}
+          ${d.y ? `· ${d.y}` : ""} ${d.c ? `· ${V.esc(d.c)}${d.rg ? `, ${V.esc(d.rg)}` : ""}` : ""} ${d.gr ? `· ${V.esc(d.gr)}` : ""} ${d.pr ? `· ${V.esc(d.pr)}` : ""}
           · <b>${V.esc(shopName[d.r] || d.r)}</b>${ship ? ` · ${ship}` : ""}${d.vol && d.vol !== 75 ? ` · ${d.vol} cl (pris omregnet til 75 cl)` : ""}</div>
         <div class="tags">${d.q != null ? `<span class="tag q" title="Samlet kvalitet på 100-point skala">${d.q} p</span>` : ""}
           ${d.v != null ? `<span class="tag ${d.v >= 2 ? "good" : ""}" title="Point over/under hvad vine til samme pris typisk får">${d.v > 0 ? "+" : ""}${d.v} p for prisen</span>` : ""}
@@ -196,7 +199,7 @@
   const reset = () => { st.shown = PAGE; render(); };
   let t;
   $("q").addEventListener("input", e => { st.q = e.target.value; clearTimeout(t); t = setTimeout(reset, 150); });
-  for (const k of ["sort", "country", "shop", "minq"]) $(k).addEventListener("change", e => { st[k] = e.target.value; reset(); });
+  for (const k of ["sort", "country", "grape", "shop", "minq"]) $(k).addEventListener("change", e => { st[k] = e.target.value; reset(); });
   for (const k of ["min", "max"]) $(k).addEventListener("input", e => { st[k] = e.target.value; clearTimeout(t); t = setTimeout(reset, 250); });
   $("types").addEventListener("click", e => {
     const b = e.target.closest(".chip"); if (!b) return;

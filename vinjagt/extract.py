@@ -440,3 +440,293 @@ def strip_html(html: str | None) -> str:
     t = (t.replace("&nbsp;", " ").replace("&amp;", "&").replace("&aelig;", "æ").replace("&oslash;", "ø")
          .replace("&aring;", "å").replace("&#8211;", "–").replace("&quot;", '"'))
     return re.sub(r"[ \t\r\f\v]+", " ", t).strip()
+
+
+# ---------------------------------------------------------------- drue og region
+
+# Kanonisk druenavn -> synonymer (flest ord først matches før kortere, fx "Cabernet Franc" før "Cabernet")
+GRAPE_SYNONYMS = {
+    "Cabernet Sauvignon": ["cabernet sauvignon", "cab sauv", "cabernet"],
+    "Cabernet Franc": ["cabernet franc", "bouchet"],
+    "Merlot": ["merlot"],
+    "Pinot Noir": ["pinot noir", "spätburgunder", "spatburgunder", "pinot nero", "blauburgunder"],
+    "Syrah": ["syrah", "shiraz"],
+    "Grenache": ["grenache", "garnacha", "garnatxa", "cannonau"],
+    "Mourvèdre": ["mourvedre", "mourvèdre", "monastrell", "mataro"],
+    "Tempranillo": ["tempranillo", "tinta roriz", "aragonez", "tinto fino", "tinta de toro", "cencibel"],
+    "Sangiovese": ["sangiovese", "brunello", "prugnolo gentile", "morellino"],
+    "Nebbiolo": ["nebbiolo", "spanna", "chiavennasca"],
+    "Barbera": ["barbera"],
+    "Dolcetto": ["dolcetto"],
+    "Corvina": ["corvina", "corvinone"],
+    "Primitivo": ["primitivo", "zinfandel"],
+    "Negroamaro": ["negroamaro"],
+    "Nero d'Avola": ["nero d avola", "nero d'avola", "calabrese"],
+    "Nerello Mascalese": ["nerello mascalese", "nerello"],
+    "Aglianico": ["aglianico"],
+    "Montepulciano": ["montepulciano d abruzzo", "montepulciano d'abruzzo"],
+    "Malbec": ["malbec", "côt", "cot"],
+    "Carménère": ["carmenere", "carménère"],
+    "Pinotage": ["pinotage"],
+    "Gamay": ["gamay"],
+    "Cinsault": ["cinsault", "cinsaut"],
+    "Carignan": ["carignan", "carignano", "cariñena", "mazuelo", "samsó"],
+    "Tannat": ["tannat"],
+    "Touriga Nacional": ["touriga nacional", "touriga"],
+    "Mencía": ["mencia", "mencía"],
+    "Bobal": ["bobal"],
+    "Blaufränkisch": ["blaufrankisch", "blaufränkisch", "lemberger", "kékfrankos"],
+    "Zweigelt": ["zweigelt"],
+    "Petit Verdot": ["petit verdot"],
+    "Lagrein": ["lagrein"],
+    "Teroldego": ["teroldego"],
+    "Xinomavro": ["xinomavro"],
+    "Agiorgitiko": ["agiorgitiko"],
+    "Saperavi": ["saperavi"],
+    "Chardonnay": ["chardonnay"],
+    "Sauvignon Blanc": ["sauvignon blanc", "fumé blanc", "fume blanc", "sauvignon"],
+    "Riesling": ["riesling"],
+    "Pinot Gris": ["pinot gris", "pinot grigio", "grauburgunder", "ruländer"],
+    "Pinot Blanc": ["pinot blanc", "pinot bianco", "weissburgunder", "weißburgunder"],
+    "Chenin Blanc": ["chenin blanc", "chenin", "steen"],
+    "Grüner Veltliner": ["gruner veltliner", "grüner veltliner", "gruner", "grüner"],
+    "Albariño": ["albarino", "albariño", "alvarinho"],
+    "Verdejo": ["verdejo"],
+    "Godello": ["godello"],
+    "Viognier": ["viognier"],
+    "Gewürztraminer": ["gewurztraminer", "gewürztraminer", "traminer"],
+    "Muscat": ["muscat", "moscato", "moscatel", "muskateller", "muscadelle"],
+    "Sémillon": ["semillon", "sémillon"],
+    "Melon de Bourgogne": ["melon de bourgogne", "muscadet"],
+    "Vermentino": ["vermentino", "rolle", "pigato"],
+    "Garganega": ["garganega"],
+    "Cortese": ["cortese"],
+    "Fiano": ["fiano"],
+    "Greco": ["greco di tufo", "greco"],
+    "Falanghina": ["falanghina"],
+    "Trebbiano": ["trebbiano", "ugni blanc"],
+    "Verdicchio": ["verdicchio"],
+    "Pecorino": ["pecorino"],
+    "Arneis": ["arneis"],
+    "Friulano": ["friulano"],
+    "Ribolla Gialla": ["ribolla gialla", "ribolla"],
+    "Grillo": ["grillo"],
+    "Carricante": ["carricante"],
+    "Torrontés": ["torrontes", "torrontés"],
+    "Marsanne": ["marsanne"],
+    "Roussanne": ["roussanne"],
+    "Picpoul": ["picpoul", "piquepoul"],
+    "Furmint": ["furmint"],
+    "Assyrtiko": ["assyrtiko"],
+    "Macabeo": ["macabeo", "viura"],
+    "Xarel·lo": ["xarel lo", "xarello", "xarel-lo"],
+    "Silvaner": ["silvaner", "sylvaner"],
+    "Müller-Thurgau": ["muller thurgau", "müller thurgau", "müller-thurgau", "rivaner"],
+    "Glera": ["glera"],
+    "Solaris": ["solaris"],
+    "Rondo": ["rondo"],
+}
+
+# Appellationer hvor druen er givet (bruges når druen ikke står i navnet)
+APPELLATION_GRAPE = [
+    ("vino nobile di montepulciano", "Sangiovese"), ("rosso di montepulciano", "Sangiovese"),
+    ("brunello di montalcino", "Sangiovese"), ("rosso di montalcino", "Sangiovese"), ("chianti", "Sangiovese"),
+    ("morellino di scansano", "Sangiovese"), ("montefalco rosso", "Sangiovese"),
+    ("barolo", "Nebbiolo"), ("barbaresco", "Nebbiolo"), ("roero rosso", "Nebbiolo"), ("gattinara", "Nebbiolo"),
+    ("ghemme", "Nebbiolo"), ("langhe nebbiolo", "Nebbiolo"), ("valtellina", "Nebbiolo"),
+    ("amarone", "Corvina"), ("valpolicella", "Corvina"), ("ripasso", "Corvina"), ("bardolino", "Corvina"),
+    ("taurasi", "Aglianico"), ("aglianico del vulture", "Aglianico"), ("etna rosso", "Nerello Mascalese"),
+    ("etna bianco", "Carricante"), ("primitivo di manduria", "Primitivo"), ("salice salentino", "Negroamaro"),
+    ("soave", "Garganega"), ("gavi", "Cortese"), ("roero arneis", "Arneis"), ("prosecco", "Glera"),
+    ("lugana", "Trebbiano"), ("frascati", "Trebbiano"),
+    ("rioja", "Tempranillo"), ("ribera del duero", "Tempranillo"), ("toro", "Tempranillo"),
+    ("rias baixas", "Albariño"), ("rías baixas", "Albariño"), ("rueda", "Verdejo"), ("jumilla", "Mourvèdre"),
+    ("chablis", "Chardonnay"), ("meursault", "Chardonnay"), ("puligny montrachet", "Chardonnay"),
+    ("chassagne montrachet", "Chardonnay"), ("pouilly fuisse", "Chardonnay"), ("pouilly fuissé", "Chardonnay"),
+    ("macon", "Chardonnay"), ("mâcon", "Chardonnay"), ("saint veran", "Chardonnay"), ("saint véran", "Chardonnay"),
+    ("bourgogne blanc", "Chardonnay"), ("blanc de blancs", "Chardonnay"),
+    ("bourgogne rouge", "Pinot Noir"), ("gevrey chambertin", "Pinot Noir"), ("nuits saint georges", "Pinot Noir"),
+    ("vosne romanee", "Pinot Noir"), ("vosne romanée", "Pinot Noir"), ("chambolle musigny", "Pinot Noir"),
+    ("pommard", "Pinot Noir"), ("volnay", "Pinot Noir"), ("santenay", "Pinot Noir"), ("mercurey", "Pinot Noir"),
+    ("hautes cotes de nuits", "Pinot Noir"), ("hautes côtes de nuits", "Pinot Noir"), ("marsannay", "Pinot Noir"),
+    ("sancerre rouge", "Pinot Noir"), ("sancerre", "Sauvignon Blanc"), ("pouilly fume", "Sauvignon Blanc"),
+    ("pouilly fumé", "Sauvignon Blanc"), ("menetou salon", "Sauvignon Blanc"), ("quincy", "Sauvignon Blanc"),
+    ("touraine", "Sauvignon Blanc"), ("vouvray", "Chenin Blanc"), ("savennieres", "Chenin Blanc"),
+    ("savennières", "Chenin Blanc"), ("montlouis", "Chenin Blanc"), ("saumur champigny", "Cabernet Franc"),
+    ("chinon", "Cabernet Franc"), ("bourgueil", "Cabernet Franc"), ("muscadet", "Melon de Bourgogne"),
+    ("beaujolais", "Gamay"), ("morgon", "Gamay"), ("fleurie", "Gamay"), ("moulin a vent", "Gamay"),
+    ("moulin-à-vent", "Gamay"), ("brouilly", "Gamay"), ("julienas", "Gamay"), ("juliénas", "Gamay"),
+    ("chiroubles", "Gamay"), ("saint amour", "Gamay"), ("regnie", "Gamay"), ("régnié", "Gamay"),
+    ("hermitage", "Syrah"), ("crozes hermitage", "Syrah"), ("cote rotie", "Syrah"), ("côte rôtie", "Syrah"),
+    ("cornas", "Syrah"), ("saint joseph", "Syrah"), ("condrieu", "Viognier"),
+    ("chateauneuf du pape", "Grenache"), ("châteauneuf du pape", "Grenache"), ("gigondas", "Grenache"),
+    ("vacqueyras", "Grenache"), ("cotes du rhone", "Grenache"), ("côtes du rhône", "Grenache"), ("rasteau", "Grenache"),
+    ("cahors", "Malbec"), ("madiran", "Tannat"),
+    ("pauillac", "Cabernet Sauvignon"), ("saint julien", "Cabernet Sauvignon"), ("saint estephe", "Cabernet Sauvignon"),
+    ("saint estèphe", "Cabernet Sauvignon"), ("margaux", "Cabernet Sauvignon"), ("haut medoc", "Cabernet Sauvignon"),
+    ("haut médoc", "Cabernet Sauvignon"), ("medoc", "Cabernet Sauvignon"), ("médoc", "Cabernet Sauvignon"),
+    ("pessac leognan", "Cabernet Sauvignon"), ("pessac léognan", "Cabernet Sauvignon"),
+    ("saint emilion", "Merlot"), ("saint émilion", "Merlot"), ("pomerol", "Merlot"), ("fronsac", "Merlot"),
+    ("lalande de pomerol", "Merlot"), ("sauternes", "Sémillon"), ("barsac", "Sémillon"),
+    ("tokaji", "Furmint"), ("santorini", "Assyrtiko"), ("naoussa", "Xinomavro"), ("nemea", "Agiorgitiko"),
+    ("vinho verde", "Alvarinho"),
+]
+
+# Region -> (land, aliaser). Mere specifikke områder (fx Barolo) peger på deres region (Piemonte).
+REGIONS = {
+    "Bordeaux": ("Frankrig", ["bordeaux", "pauillac", "margaux", "saint julien", "saint estephe", "saint estèphe", "medoc",
+                              "médoc", "haut medoc", "haut médoc", "saint emilion", "saint émilion", "pomerol", "fronsac",
+                              "pessac leognan", "pessac léognan", "graves", "sauternes", "barsac", "entre deux mers",
+                              "lalande de pomerol", "listrac", "moulis", "côtes de bourg", "blaye"]),
+    "Bourgogne": ("Frankrig", ["bourgogne", "burgundy", "chablis", "meursault", "puligny montrachet", "chassagne montrachet",
+                               "gevrey chambertin", "nuits saint georges", "vosne romanee", "vosne romanée", "chambolle musigny",
+                               "pommard", "volnay", "santenay", "mercurey", "givry", "rully", "macon", "mâcon",
+                               "pouilly fuisse", "pouilly fuissé", "saint veran", "saint véran", "marsannay",
+                               "cote de beaune", "côte de beaune", "cote de nuits", "côte de nuits", "aloxe corton",
+                               "savigny les beaune", "beaune", "corton", "irancy", "hautes cotes", "hautes côtes"]),
+    "Beaujolais": ("Frankrig", ["beaujolais", "morgon", "fleurie", "moulin a vent", "moulin-à-vent", "brouilly",
+                                "julienas", "juliénas", "chiroubles", "saint amour", "regnie", "régnié", "chenas", "chénas"]),
+    "Rhône": ("Frankrig", ["rhone", "rhône", "chateauneuf du pape", "châteauneuf du pape", "gigondas", "vacqueyras",
+                           "hermitage", "crozes hermitage", "cote rotie", "côte rôtie", "cornas", "saint joseph",
+                           "condrieu", "rasteau", "lirac", "tavel", "cairanne", "ventoux", "luberon", "costieres de nimes"]),
+    "Loire": ("Frankrig", ["loire", "sancerre", "pouilly fume", "pouilly fumé", "vouvray", "savennieres", "savennières",
+                           "chinon", "bourgueil", "saumur", "muscadet", "anjou", "touraine", "menetou salon", "quincy",
+                           "montlouis", "reuilly"]),
+    "Champagne": ("Frankrig", ["champagne"]),
+    "Alsace": ("Frankrig", ["alsace", "elsass"]),
+    "Languedoc-Roussillon": ("Frankrig", ["languedoc", "roussillon", "minervois", "corbieres", "corbières", "faugeres",
+                                          "faugères", "saint chinian", "pic saint loup", "fitou", "limoux", "pays d oc",
+                                          "pays d'oc", "picpoul de pinet", "terrasses du larzac", "collioure", "banyuls", "maury"]),
+    "Provence": ("Frankrig", ["provence", "bandol", "cassis", "bellet", "palette"]),
+    "Sydvestfrankrig": ("Frankrig", ["cahors", "madiran", "bergerac", "gaillac", "jurancon", "jurançon", "gascogne",
+                                     "irouleguy", "irouléguy", "fronton", "marcillac"]),
+    "Jura": ("Frankrig", ["jura", "arbois"]),
+    "Piemonte": ("Italien", ["piemonte", "piedmont", "barolo", "barbaresco", "langhe", "roero", "gavi", "asti", "alba",
+                             "gattinara", "ghemme", "monferrato", "dogliani"]),
+    "Toscana": ("Italien", ["toscana", "tuscany", "chianti", "montalcino", "brunello", "montepulciano", "bolgheri",
+                            "maremma", "morellino", "carmignano", "san gimignano", "super tuscan"]),
+    "Veneto": ("Italien", ["veneto", "amarone", "valpolicella", "ripasso", "soave", "bardolino", "prosecco", "lugana",
+                           "valdobbiadene", "conegliano"]),
+    "Friuli": ("Italien", ["friuli", "collio", "colli orientali"]),
+    "Trentino-Alto Adige": ("Italien", ["alto adige", "südtirol", "sudtirol", "trentino"]),
+    "Lombardiet": ("Italien", ["lombardia", "franciacorta", "valtellina", "oltrepo"]),
+    "Abruzzo": ("Italien", ["abruzzo", "montepulciano d abruzzo", "montepulciano d'abruzzo"]),
+    "Marche": ("Italien", ["marche", "verdicchio", "rosso conero", "conero"]),
+    "Umbrien": ("Italien", ["umbria", "montefalco", "orvieto"]),
+    "Lazio": ("Italien", ["lazio", "frascati"]),
+    "Campania": ("Italien", ["campania", "taurasi", "fiano di avellino", "greco di tufo", "falanghina"]),
+    "Puglia": ("Italien", ["puglia", "apulia", "salento", "manduria", "salice salentino"]),
+    "Basilicata": ("Italien", ["basilicata", "vulture"]),
+    "Sicilien": ("Italien", ["sicilien", "sicilia", "sicily", "etna", "vittoria", "marsala"]),
+    "Sardinien": ("Italien", ["sardinien", "sardegna", "sardinia"]),
+    "Rioja": ("Spanien", ["rioja"]),
+    "Ribera del Duero": ("Spanien", ["ribera del duero"]),
+    "Rueda": ("Spanien", ["rueda"]),
+    "Toro": ("Spanien", ["toro"]),
+    "Priorat": ("Spanien", ["priorat", "priorato", "montsant"]),
+    "Rías Baixas": ("Spanien", ["rias baixas", "rías baixas"]),
+    "Bierzo": ("Spanien", ["bierzo"]),
+    "Navarra": ("Spanien", ["navarra"]),
+    "Penedès / Cava": ("Spanien", ["penedes", "penedès", "cava", "corpinnat"]),
+    "Jumilla / Murcia": ("Spanien", ["jumilla", "yecla", "bullas", "murcia"]),
+    "Jerez": ("Spanien", ["jerez", "sherry", "manzanilla"]),
+    "La Mancha / Valencia": ("Spanien", ["la mancha", "valdepenas", "valdepeñas", "valencia", "utiel requena", "alicante"]),
+    "Douro": ("Portugal", ["douro", "porto", "port"]),
+    "Dão": ("Portugal", ["dao", "dão"]),
+    "Alentejo": ("Portugal", ["alentejo"]),
+    "Vinho Verde": ("Portugal", ["vinho verde"]),
+    "Mosel": ("Tyskland", ["mosel"]),
+    "Rheingau": ("Tyskland", ["rheingau"]),
+    "Pfalz": ("Tyskland", ["pfalz"]),
+    "Rheinhessen": ("Tyskland", ["rheinhessen"]),
+    "Nahe": ("Tyskland", ["nahe"]),
+    "Baden": ("Tyskland", ["baden"]),
+    "Franken": ("Tyskland", ["franken"]),
+    "Wachau": ("Østrig", ["wachau"]),
+    "Kamptal": ("Østrig", ["kamptal"]),
+    "Kremstal": ("Østrig", ["kremstal"]),
+    "Burgenland": ("Østrig", ["burgenland"]),
+    "Steiermark": ("Østrig", ["steiermark", "styria"]),
+    "Napa Valley": ("USA", ["napa"]),
+    "Sonoma": ("USA", ["sonoma", "russian river"]),
+    "Paso Robles": ("USA", ["paso robles"]),
+    "Californien": ("USA", ["californien", "california", "lodi", "central coast", "santa barbara"]),
+    "Oregon": ("USA", ["oregon", "willamette"]),
+    "Washington": ("USA", ["washington state", "columbia valley"]),
+    "Mendoza": ("Argentina", ["mendoza", "uco valley", "lujan de cuyo", "luján de cuyo"]),
+    "Salta": ("Argentina", ["salta", "cafayate"]),
+    "Patagonien": ("Argentina", ["patagonien", "patagonia"]),
+    "Maipo": ("Chile", ["maipo"]),
+    "Colchagua": ("Chile", ["colchagua"]),
+    "Casablanca": ("Chile", ["casablanca"]),
+    "Barossa": ("Australien", ["barossa"]),
+    "McLaren Vale": ("Australien", ["mclaren vale"]),
+    "Margaret River": ("Australien", ["margaret river"]),
+    "Coonawarra": ("Australien", ["coonawarra"]),
+    "Yarra Valley": ("Australien", ["yarra"]),
+    "Marlborough": ("New Zealand", ["marlborough"]),
+    "Central Otago": ("New Zealand", ["central otago"]),
+    "Hawke's Bay": ("New Zealand", ["hawkes bay", "hawke s bay"]),
+    "Stellenbosch": ("Sydafrika", ["stellenbosch"]),
+    "Swartland": ("Sydafrika", ["swartland"]),
+    "Tokaj": ("Ungarn", ["tokaj", "tokaji"]),
+    "Santorini": ("Grækenland", ["santorini"]),
+    "Bekaa": ("Libanon", ["bekaa"]),
+    "Kakheti": ("Georgien", ["kakheti"]),
+}
+
+_PCT_RX = re.compile(r"(\d{1,3})\s*%\s*([A-Za-zÀ-ÿ' \-]{3,30})")
+
+
+def _grape_hits(text: str) -> list[tuple[int, str]]:
+    """Alle druer nævnt i teksten som (position, kanonisk navn) – længste synonymer først."""
+    t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+    hits, taken = [], []
+    pairs = sorted(((fold(s), g) for g, syns in GRAPE_SYNONYMS.items() for s in syns), key=lambda x: -len(x[0]))
+    for syn, grape in pairs:
+        key = " " + re.sub(r"[^a-z0-9]+", " ", syn).strip() + " "
+        start = 0
+        while True:
+            i = t.find(key, start)
+            if i < 0:
+                break
+            if not any(a <= i < b for a, b in taken):
+                hits.append((i, grape))
+                taken.append((i, i + len(key)))
+            start = i + 1
+    return sorted(hits)
+
+
+def detect_grape(name: str, categories=(), description: str = "") -> str | None:
+    """Den (dominerende) drue: 1) i navnet, 2) i kategorier/egenskaber, 3) givet af appellationen,
+    4) højeste procent i beskrivelsen (fx '85% Merlot'), 5) første drue nævnt tidligt i beskrivelsen."""
+    for src in (name, " | ".join(categories or [])):
+        hits = _grape_hits(src)
+        if hits:
+            return hits[0][1]
+    nm = " " + re.sub(r"[^a-z0-9]+", " ", fold(f"{name} {' '.join(categories or [])}")) + " "
+    for app, grape in APPELLATION_GRAPE:
+        if " " + re.sub(r"[^a-z0-9]+", " ", fold(app)).strip() + " " in nm:
+            return grape
+    best = None
+    for pct, words in _PCT_RX.findall(description or ""):
+        hits = _grape_hits(words)
+        if hits and (best is None or int(pct) > best[0]):
+            best = (int(pct), hits[0][1])
+    if best:
+        return best[1]
+    hits = _grape_hits((description or "")[:400])
+    return hits[0][1] if hits else None
+
+
+def detect_region(*texts: str) -> tuple[str | None, str | None]:
+    """(region, land) ud fra navn, kategorier og beskrivelse – mest specifikke alias vinder."""
+    aliases = sorted(((fold(a), r, c) for r, (c, al) in REGIONS.items() for a in al), key=lambda x: -len(x[0]))
+    for text in texts:
+        if not text:
+            continue
+        t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+        for alias, region, country in aliases:
+            if " " + re.sub(r"[^a-z0-9]+", " ", alias).strip() + " " in t:
+                return region, country
+    return None, None

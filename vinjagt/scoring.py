@@ -179,7 +179,8 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
         cheapest = min(others, key=lambda m: m["price_1"]) if others else None
         deals.append({
             "id": w["id"], "n": w["name"], "pr": w.get("producer"), "y": w.get("vintage"), "t": w.get("wine_type"),
-            "c": w.get("country"), "r": w["retailer_id"], "u": w["url"], "img": w.get("image"),
+            "c": w.get("country"), "rg": w.get("region"), "gr": w.get("grape"),
+            "r": w["retailer_id"], "u": w["url"], "img": w.get("image"),
             "vol": w.get("volume_cl"), "p1": p1, "p6": p6, "bp": w.get("before_price"), "bk": w.get("before_kind"),
             "m1": round(market_1, 2) if market_1 else None, "mn": len(others),
             "ch": {"r": cheapest["retailer_id"], "p": cheapest["price_1"], "u": cheapest["url"]} if cheapest else None,
