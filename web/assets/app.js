@@ -31,8 +31,17 @@
   const saveFavs = () => { try { localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); } catch (e) { /* ignoreres */ } };
 
   // filtre
-  const countries = [...new Set(deals.map(d => d.c).filter(Boolean))].sort((a, b) => a.localeCompare(b, "da"));
-  $("country").insertAdjacentHTML("beforeend", countries.map(c => `<option>${V.esc(c)}</option>`).join(""));
+  // Land med regioner under: værdien er "Land" eller "Land|Region"
+  const byCountry = new Map();
+  for (const d of deals) if (d.c) {
+    if (!byCountry.has(d.c)) byCountry.set(d.c, new Set());
+    if (d.rg) byCountry.get(d.c).add(d.rg);
+  }
+  const cmp = (a, b) => a.localeCompare(b, "da");
+  $("country").insertAdjacentHTML("beforeend", [...byCountry.keys()].sort(cmp).map(c =>
+    `<option value="${V.esc(c)}">${V.esc(c)}</option>` +
+    [...byCountry.get(c)].sort(cmp).map(r => `<option value="${V.esc(c + "|" + r)}">&nbsp;&nbsp;– ${V.esc(r)}</option>`).join("")
+  ).join(""));
   const grapes = [...new Set(deals.map(d => d.gr).filter(Boolean))].sort((a, b) => a.localeCompare(b, "da"));
   $("grape").insertAdjacentHTML("beforeend", grapes.map(g => `<option>${V.esc(g)}</option>`).join(""));
   const shopIds = [...new Set(deals.map(d => d.r))].sort((a, b) => (shopName[a] || a).localeCompare(shopName[b] || b, "da"));
@@ -85,7 +94,8 @@
 
   // alle filtre undtagen vintype – så knapperne kan vise, hvor mange hver type giver med de øvrige filtre
   function matches(d, words, min, max, minq) {
-    return (!st.country || d.c === st.country) &&
+    const [fc, fr] = st.country.split("|");
+    return (!st.country || (d.c === fc && (!fr || d.rg === fr))) &&
       (!st.grape || d.gr === st.grape) &&
       (!st.shop || d.r === st.shop) &&
       (!min || price(d) >= min) &&

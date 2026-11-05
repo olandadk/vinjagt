@@ -719,9 +719,11 @@ def detect_grape(name: str, categories=(), description: str = "") -> str | None:
     return hits[0][1] if hits else None
 
 
-def detect_region(*texts: str) -> tuple[str | None, str | None]:
-    """(region, land) ud fra navn, kategorier og beskrivelse – mest specifikke alias vinder."""
-    aliases = sorted(((fold(a), r, c) for r, (c, al) in REGIONS.items() for a in al), key=lambda x: -len(x[0]))
+def detect_region(*texts: str, country: str | None = None) -> tuple[str | None, str | None]:
+    """(region, land) ud fra navn, kategorier og beskrivelse – mest specifikke alias vinder.
+    country: kun regioner i dette land (bruges når teksten er en beskrivelse)."""
+    aliases = sorted(((fold(a), r, c) for r, (c, al) in REGIONS.items() for a in al if not country or c == country),
+                     key=lambda x: -len(x[0]))
     for text in texts:
         if not text:
             continue

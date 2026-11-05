@@ -166,3 +166,13 @@ def test_grape_and_region():
     from vinjagt.models import Product, normalize
     w = normalize(Product("r", "u", "2021 Brunello di Montalcino Cordella", 324.95))
     assert (w.grape, w.region, w.country) == ("Sangiovese", "Toscana", "Italien")
+
+
+def test_region_from_description_must_match_country():
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "2018 Mount Mary, Quintet", 999.95, categories=["Rødvin", "Australien"],
+                          description="En elegant Bordeaux-blend fra Yarra Valley"))
+    assert w.country == "Australien" and w.region == "Yarra Valley"
+    w = normalize(Product("r", "u", "2018 Mount Mary, Quintet", 999.95, categories=["Australien"],
+                          description="Inspireret af Bordeaux"))
+    assert w.country == "Australien" and w.region is None
