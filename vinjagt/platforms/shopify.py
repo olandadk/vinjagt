@@ -10,11 +10,15 @@ from ..models import Product
 
 
 def detect(client, base: str) -> bool:
-    data, r = client.get_json(f"{base}/products.json?limit=1")
+    try:
+        data, r = client.get_json(f"{base}/products.json?limit=1")
+        throttled = r is not None and r.status_code == 429
+    except Throttled:
+        data, throttled = None, True
     if isinstance(data, dict) and isinstance(data.get("products"), list):
         return True
-    # API'et kan være midlertidigt overbelastet (429) – kig efter Shopify-spor på forsiden
-    if r is not None and r.status_code == 429:
+    # API'et afviser robotter (429) – kig efter Shopify-spor på forsiden
+    if throttled:
         try:
             html = client.get_text(base + "/") or ""
         except Exception:  # noqa: BLE001
