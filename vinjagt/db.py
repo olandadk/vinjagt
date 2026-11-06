@@ -52,6 +52,7 @@ class DB:
     def __init__(self, path: str):
         self.c = sqlite3.connect(path, timeout=60, check_same_thread=False)
         self.c.row_factory = sqlite3.Row
+        self._pending = 0
         self.c.executescript(SCHEMA)
         for table, col, typ in (("wines", "on_offer", "INTEGER DEFAULT 0"), ("wines", "grape", "TEXT"),
                                 ("wines", "region", "TEXT"), ("retailers", "offer_pages", "TEXT"), ("retailers", "last_ok", "REAL"),
@@ -257,8 +258,16 @@ class DB:
         return {r[0] for r in self.c.execute("SELECT url FROM pages WHERE retailer_id=? AND is_product=0", (rid,))}
 
     def mark_page(self, url: str, rid: str, is_product, status: str):
-        self.c.execute("INSERT OR REPLACE INTO pages(url,retailer_id,last_fetched,is_product,status) VALUES(?,?,?,?,?)",
-                       (url, rid, time.time(), None if is_product is None else int(is_product), status))
+        try:
+            self.c.execute("INSERT OR REPLACE INTO pages(url,retailer_id,last_fetched,is_product,status) VALUES(?,?,?,?,?)",
+                           (url, rid, time.time(), None if is_product is None else int(is_product), status))
+            self._pending += 1
+            if self._pending >= 25:  # gem løbende, så databasen ikke holdes låst under en hel scanning
+                self.c.commit()
+                self._pending = 0
+        except sqlite3.OperationalError as e:  # fx 'database is locked' – sidestatus er ikke kritisk
+            import logging
+            logging.getLogger(__name__).warning("Kunne ikke gemme sidestatus for %s: %s", url, e)
 
     # ---------------------------------------------- eksterne vurderinger
     def save_ext(self, source: str, ext_id: str, name: str, producer: str | None, vintage: int | None,

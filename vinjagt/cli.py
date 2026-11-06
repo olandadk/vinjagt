@@ -493,6 +493,16 @@ def main(argv=None):
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     if a.command == "serve":
         return cmd_serve(cfg, a.port)
+    # Kun én skrivende kørsel ad gangen (fx nattens scanning og en manuel 'run' samtidig)
+    if a.command in ("run", "scan", "mail", "ratings", "build", "publish"):
+        import fcntl
+        lock_file = open(os.path.join(cfg["data_dir"], "vinjagt.lock"), "w")
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print("En anden Vinjagt-kørsel er i gang (fx nattens scanning). Vent til den er færdig:\n"
+                  "   systemctl status vinjagt --no-pager      journalctl -u vinjagt -f")
+            return 1
     db = DB(os.path.join(cfg["data_dir"], "vinjagt.sqlite"))
     only = set(a.only.split(",")) if a.only else None
     from . import publish, site
