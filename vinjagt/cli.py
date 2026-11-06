@@ -416,7 +416,8 @@ def cmd_why(cfg, db, url: str):
     print(f"   pris 1 fl. {w['price_1']} kr, 6 fl. {w['price_6']} kr, førpris {w['before_price'] or '-'}"
           f" ({w['before_kind'] or '-'}), på lager: {'ja' if w['in_stock'] else 'nej'}")
     print(f"   regnes som forhandlertilbud: {'JA' if w['on_offer'] else 'NEJ (ingen førpris og ikke fundet på en tilbudsside)'}")
-    wines = db.current_wines(max_products_api=int(cfg["max_products_api"]))
+    from .models import revalidate
+    wines = revalidate(db.current_wines(max_products_api=int(cfg["max_products_api"])))
     if not any(x["id"] == w["id"] for x in wines):
         print("   NB: ikke set i forhandlerens seneste fulde scanning (eller de seneste 10 dage) – tæller ikke med")
         return

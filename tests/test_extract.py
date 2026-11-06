@@ -208,3 +208,19 @@ def test_data_review_fixes():
     assert X._canon_critic("Luca maroni") == "Luca Maroni" and X._canon_critic("VINOUS") == "Vinous"
     from vinjagt.matching import is_generic, tokens
     assert is_generic(tokens("Barolo")) and is_generic(tokens("Pinot Noir")) and not is_generic(tokens("Fontanafredda Barolo"))
+
+
+def test_revalidate_old_rows():
+    from vinjagt.models import revalidate
+    rows = [
+        {"id": 1, "name": "Zonin Limoneto Spritz", "price_1": 170.0, "country": "Danmark", "wine_type": None},
+        {"id": 2, "name": "Yealands Sauvignon Blanc", "price_1": 99.0, "country": "Danmark", "wine_type": "hvid"},
+        {"id": 3, "name": "Vérité La Muse 2012", "price_1": 2.69, "country": None},
+        {"id": 4, "name": "2020 Volnay Caillerets", "price_1": 400.0, "country": None, "wine_type": None, "grape": "Pinot Noir"},
+        {"id": 5, "name": "Fayolle Crozes Hermitage Blanc", "price_1": 200.0, "wine_type": "hvid", "grape": "Syrah", "country": "Frankrig"},
+    ]
+    out = {r["id"]: r for r in revalidate(rows)}
+    assert set(out) == {2, 4, 5}
+    assert out[2]["country"] is None
+    assert out[4]["wine_type"] == "rød" and out[4]["country"] == "Frankrig"
+    assert out[5]["grape"] is None

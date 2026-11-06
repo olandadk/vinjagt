@@ -22,7 +22,8 @@ def _iso(ts):
 
 def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     t0 = time.time()
-    wines = db.current_wines(max_products_api=int(cfg["max_products_api"]))
+    from .models import revalidate
+    wines = revalidate(db.current_wines(max_products_api=int(cfg["max_products_api"])))
     groups = group_wines(wines)
     history = db.history_summary()
     ext = db.ext_ratings()

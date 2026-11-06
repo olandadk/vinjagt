@@ -127,3 +127,28 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
         critic=critic, image=p.image, gtin=p.gtin,
         on_offer=bool(p.on_offer or (before and before > unit) or price_6 <= price_1 * 0.9),
     )
+
+
+def revalidate(rows: list[dict]) -> list[dict]:
+    """Tjek gemte vine efter de nyeste regler – også dem der ikke er hentet igen siden reglerne blev ændret.
+    Bruger kun det, der står i databasen (navn, pris, type, drue, land)."""
+    out = []
+    for w in rows:
+        name = w.get("name") or ""
+        if X.has_word(name, X.NON_WINE) or X.MIXED_RX.search(name):
+            continue  # ikke vin / blandet kasse
+        if (w.get("price_1") or 0) < 20:
+            continue  # fejlaflæst pris
+        w = dict(w)
+        if w.get("country") == "Danmark" and X.detect_country(name) != "Danmark":
+            w["country"] = None  # tidligere fundet i fx "levering i hele Danmark"
+        if not w.get("country"):
+            region, country = X.detect_region(name)
+            w["country"] = X.detect_country(name) or country
+            w["region"] = w.get("region") or region
+        if w.get("grape") and not X.grape_fits(w["grape"], w.get("wine_type"), name):
+            w["grape"] = None
+        if not w.get("wine_type") and w.get("grape"):
+            w["wine_type"] = "rød" if w["grape"] in X.RED_GRAPES else ("hvid" if w["grape"] in X.WHITE_GRAPES else None)
+        out.append(w)
+    return out
