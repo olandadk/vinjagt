@@ -224,3 +224,11 @@ def test_revalidate_old_rows():
     assert out[2]["country"] is None
     assert out[4]["wine_type"] == "rød" and out[4]["country"] == "Frankrig"
     assert out[5]["grape"] is None
+
+
+def test_clearly_wine_for_supermarkets():
+    assert not X.clearly_wine("Rød peber 3 stk", ["Grønt"])
+    assert not X.clearly_wine("Hvid chokolade", [])
+    assert X.clearly_wine("Gato Negro Cabernet Sauvignon", [])
+    assert X.clearly_wine("Amarone della Valpolicella 2019", [])
+    assert X.clearly_wine("Blå Nun", ["Vin"])

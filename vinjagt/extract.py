@@ -785,3 +785,19 @@ def detect_region(*texts: str, country: str | None = None) -> tuple[str | None, 
             if " " + re.sub(r"[^a-z0-9]+", " ", alias).strip() + " " in t:
                 return region, country
     return None, None
+
+
+WINE_WORDS = ["vin", "rødvin", "roedvin", "hvidvin", "rosévin", "rosevin", "mousserende", "champagne", "cava", "prosecco",
+              "crémant", "cremant", "portvin", "sherry", "dessertvin", "orangevin", "wine", "vino", "vinho", "wein",
+              "rotwein", "weisswein", "weißwein", "sekt", "spumante", "rosé"]
+
+
+def clearly_wine(name: str, categories=(), grape: str | None = None) -> bool:
+    """Streng kontrol til butikker med andre varer end vin (fx supermarkeder):
+    vin-ord i navn/kategori, en kendt drue, eller en kendt vin-appellation i navnet."""
+    if has_word(f"{name} | {' | '.join(categories or [])}", WINE_WORDS):
+        return True
+    if grape or _grape_hits(name):
+        return True
+    nm = " " + re.sub(r"[^a-z0-9]+", " ", fold(name)) + " "
+    return any(" " + re.sub(r"[^a-z0-9]+", " ", fold(app)).strip() + " " in nm for app, _ in APPELLATION_GRAPE)

@@ -26,6 +26,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from . import config as C
+from . import extract as X
 from .db import DB
 from .http import PoliteClient
 from .matching import wine_key
@@ -119,6 +120,8 @@ def _scan_one_inner(cfg, r: dict, platform: str | None, db_for_pages) -> tuple:
             else:
                 continue  # ukendt valuta
             w = normalize(p, fx)
+            if w and r.get("strict_wine") and not X.clearly_wine(p.name, p.categories, w.grape):
+                w = None  # supermarked o.l.: kun varer der tydeligt er vin
             if w:
                 if mail_keys and url_key(w.url) in mail_keys:
                     w.on_offer = True  # nævnt i et nyhedsbrev

@@ -13,6 +13,7 @@
 #                        (standard for forsiden: kun varer med førpris eller tilbudsmærke)
 #   request_delay        sekunder mellem kald til netop denne shop (overskriver config)
 #   currency / country / foreign   udenlandsk shop: valuta (EUR), landekode og foreign: true
+#   strict_wine          true = kun varer der tydeligt er vin (til supermarkeder o.l.)
 #   enabled              false = spring over
 #
 # Platformen findes automatisk ved første kørsel (python -m vinjagt detect).
@@ -134,4 +135,12 @@
 
 - name: Megavin
   url: https://www.megavin.dk
+
+- name: Meny
+  url: https://shop.meny.dk
+  note: Supermarked – kun vin fra "Skarp pris"
+  offer_urls: [/skarp-pris]
+  discover_offers: false
+  strict_wine: true         # supermarked: kun varer der tydeligt er vin
+  background_pages: 0       # hent kun tilbudssiden, ikke hele supermarkedets sortiment
 
