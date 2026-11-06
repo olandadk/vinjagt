@@ -138,7 +138,8 @@
 
 - name: Meny
   url: https://shop.meny.dk
-  note: Supermarked – kun vin fra "Skarp pris"
+  note: Supermarked – blokerer automatiske scannere (Cloudflare), derfor slået fra
+  enabled: false
   offer_urls: [/skarp-pris]
   discover_offers: false
   strict_wine: true         # supermarked: kun varer der tydeligt er vin
