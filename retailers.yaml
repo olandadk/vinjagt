@@ -147,6 +147,6 @@
 
 - name: Decantalo
   url: https://www.decantalo.dk/da
-  note: Spansk vinhandel med dansk udgave (sendes fra Spanien)
+  note: Spansk vinhandel, priser i kr. inkl. moms – fragt 96,50 kr., fri fragt fra ca. 1.490 kr. (sendes fra Spanien)
   product_url_pattern: "/da/[^?#]+"   # kun den danske udgave af butikken
 
