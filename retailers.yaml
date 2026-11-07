@@ -145,3 +145,8 @@
   strict_wine: true         # supermarked: kun varer der tydeligt er vin
   background_pages: 0       # hent kun tilbudssiden, ikke hele supermarkedets sortiment
 
+- name: Decantalo
+  url: https://www.decantalo.dk/da
+  note: Spansk vinhandel med dansk udgave (sendes fra Spanien)
+  product_url_pattern: "/da/[^?#]+"   # kun den danske udgave af butikken
+
