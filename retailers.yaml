@@ -150,3 +150,7 @@
   note: Spansk vinhandel, priser i kr. inkl. moms – fragt 96,50 kr., fri fragt fra ca. 1.490 kr. (sendes fra Spanien)
   product_url_pattern: "/da/[^?#]+"   # kun den danske udgave af butikken
 
+- name: Erik Sørensen Vin
+  url: https://eriksorensenvin.dk
+  offer_urls: [/kategori/produkter/tilbud/]
+
