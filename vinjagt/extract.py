@@ -832,3 +832,18 @@ def clearly_wine(name: str, categories=(), grape: str | None = None) -> bool:
         return True
     nm = " " + re.sub(r"[^a-z0-9]+", " ", fold(name)) + " "
     return any(" " + re.sub(r"[^a-z0-9]+", " ", fold(app)).strip() + " " in nm for app, _ in APPELLATION_GRAPE)
+
+
+_SPEC_RX = re.compile(r"(?:^|[\n|•·;]|\s{2,}|\b)(land|oprindelsesland|herkomstland|country|region|område|omraade|distrikt|appellation)"
+                      r"\s*[:\-–]\s*([A-Za-zÀ-ÿÆØÅæøå'’ .,\-]{2,40}?)(?=\s*(?:[\n|•·;]|\s{2,}|$|[A-ZÆØÅ][a-zæøå]+\s*:))", re.I)
+
+
+def parse_spec_fields(text: str) -> dict:
+    """Felter fra produktsidens oversigt, fx 'Land: USA', 'Region: Willamette Valley'."""
+    out: dict[str, str] = {}
+    for key, val in _SPEC_RX.findall(text or ""):
+        k = fold(key)
+        k = "land" if k in ("land", "oprindelsesland", "herkomstland", "country") else "region"
+        if k not in out and val.strip(" .,-"):
+            out[k] = val.strip(" .,-")
+    return out

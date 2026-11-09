@@ -242,3 +242,14 @@ def test_region_comparison_in_description_is_not_origin():
     w = normalize(Product("r", "u", "Rockbound Pinot Noir", 299.0, categories=["Rødvin"],
                           description="Fra Oregon – minder om en god Bourgogne."))
     assert w.country == "USA"
+
+
+def test_spec_fields_and_late_country_names():
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "Rockbound Pinot Noir - Top Pinot Noir", 299.0, categories=["Rødvin"],
+                          description="På niveau med en god Bourgogne. " + "x " * 600 +
+                                      "Producent: Rockbound | Land: USA | Område: Willamette Valley | Indhold: 75 cl"))
+    assert (w.country, w.region) == ("USA", "Oregon")
+    w = normalize(Product("r", "u", "Rockbound Pinot Noir", 299.0, categories=["Rødvin"],
+                          description="Minder om Bourgogne. " + "x " * 600 + "Fremstillet i Oregon af ..."))
+    assert w.country == "USA"

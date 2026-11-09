@@ -88,14 +88,21 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     # Land og region: navn og kategorier først. Beskrivelsen bruges kun, hvis den passer med landet –
     # ellers bliver fx en australsk "Bordeaux-blend" til Bordeaux.
     cats = " | ".join(p.categories)
+    spec = X.parse_spec_fields(desc)  # "Land: USA", "Region: Oregon" osv. fra produktsidens oversigt
     region, region_country = X.detect_region(p.name, cats)
-    country_hint = p.country or X.detect_country(p.name, cats) or region_country
+    country_hint = (p.country or X.detect_country(p.name, cats)
+                    or (X.detect_country(spec["land"]) if spec.get("land") else None) or region_country)
     if region and country_hint and region_country != country_hint:
         region, region_country = None, None
-    if not country_hint:  # sidste udvej: landet fra beskrivelsen (aldrig Danmark – se nedenfor)
-        country_hint = X.detect_country_name(desc[:800], exclude=("Danmark",))
+    if not region and spec.get("region"):
+        r1, c1 = X.detect_region(spec["region"], country=country_hint)
+        if r1:
+            region, region_country = r1, c1
+            country_hint = country_hint or c1
+    if not country_hint:  # sidste udvej: landenavne i hele beskrivelsen (aldrig Danmark – se nedenfor)
+        country_hint = X.detect_country_name(desc, exclude=("Danmark",))
     if not region and country_hint:
-        r2, c2 = X.detect_region(desc[:800], country=country_hint)
+        r2, c2 = X.detect_region(desc[:1500], country=country_hint)
         if r2 and c2 == country_hint:
             region, region_country = r2, c2
     factor = 75.0 / vol  # pr. 75 cl
