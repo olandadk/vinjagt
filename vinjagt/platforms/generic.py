@@ -100,17 +100,46 @@ def _is_type(node: dict, t: str) -> bool:
     return t in typ if isinstance(typ, list) else typ == t
 
 
+def _ld_field(raw: str, key: str) -> str | None:
+    m = re.search(r'"' + re.escape(key) + r'"\s*:\s*"((?:[^"\\]|\\.)*?)"\s*[,}\n]', raw)
+    return m.group(1).replace('\\"', '"').replace("\\/", "/").strip() if m else None
+
+
+def parse_ld(raw: str):
+    """Læs JSON-LD tolerant. Returnerer (data, metode): 'ok', 'repareret', 'delvist' eller (None, fejl)."""
+    raw = (raw or "").strip()
+    if raw.startswith("<!--"):
+        raw = raw.strip("<!->").strip()
+    try:
+        return json.loads(raw), "ok"
+    except ValueError as e:
+        first_err = str(e)
+    for fix in (lambda t: t,  # strict=False tillader linjeskift/tab inde i tekst
+                lambda t: re.sub(r",\s*([}\]])", r"\1", t),  # komma før } eller ]
+                lambda t: re.sub(r"[\x00-\x1f]", " ", re.sub(r",\s*([}\]])", r"\1", t))):
+        try:
+            return json.loads(fix(raw), strict=False), "repareret"
+        except ValueError:
+            continue
+    # Sidste udvej: træk de vigtigste felter ud af et Product-objekt med regulære udtryk
+    if re.search(r'"@type"\s*:\s*"Product"', raw):
+        brand = re.search(r'"brand"\s*:\s*\{[^}]*?"name"\s*:\s*"((?:[^"\\]|\\.)*?)"', raw)
+        node = {"@type": "Product", "name": _ld_field(raw, "name"), "category": _ld_field(raw, "category"),
+                "description": _ld_field(raw, "description"), "gtin13": _ld_field(raw, "gtin13"),
+                "brand": {"name": brand.group(1)} if brand else _ld_field(raw, "brand"),
+                "offers": {"price": _ld_field(raw, "price") or (re.search(r'"price"\s*:\s*([\d.]+)', raw) or [None, None])[1],
+                           "priceCurrency": _ld_field(raw, "priceCurrency") or "DKK",
+                           "availability": _ld_field(raw, "availability") or ""}}
+        return node, "delvist"
+    return None, first_err
+
+
 def _jsonld_products(soup: BeautifulSoup) -> list[dict]:
     out = []
     for s in soup.find_all("script", type=re.compile("ld\\+json", re.I)):
-        raw = s.string or s.get_text() or ""
-        try:
-            data = json.loads(raw.strip())
-        except ValueError:
-            try:
-                data = json.loads(re.sub(r"[\x00-\x1f]", " ", raw.strip()))
-            except ValueError:
-                continue
+        data, _how = parse_ld(s.string or s.get_text() or "")
+        if data is None:
+            continue
         out += [n for n in _walk(data) if _is_type(n, "Product") or _is_type(n, "ProductGroup")]
     return out
 

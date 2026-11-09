@@ -253,3 +253,18 @@ def test_spec_fields_and_late_country_names():
     w = normalize(Product("r", "u", "Rockbound Pinot Noir", 299.0, categories=["Rødvin"],
                           description="Minder om Bourgogne. " + "x " * 600 + "Fremstillet i Oregon af ..."))
     assert w.country == "USA"
+
+
+def test_tolerant_jsonld():
+    from vinjagt.platforms.generic import parse_ld, parse_product_page
+    raw = '{\n "@context": "https://schema.org/",\n "@type": "Product",\n "name": "Rockbound Pinot Noir",\n' \
+          ' "description": "Linje 1\nLinje 2",\n "brand": {"@type": "Brand", "name": "Rockbound"},\n' \
+          ' "offers": {"@type": "Offer", "price": "299.00", "priceCurrency": "DKK"},\n}'
+    data, how = parse_ld(raw)
+    assert how == "repareret" and data["brand"]["name"] == "Rockbound"
+    broken = '{"@type": "Product", "name": "Vin "Special"", "brand": {"name": "Prod"}, "offers": {"price": "149.00"}}'
+    data, how = parse_ld(broken)
+    assert how == "delvist" and data["brand"]["name"] == "Prod" and data["offers"]["price"] == "149.00"
+    p = parse_product_page(f"<html><script type='application/ld+json'>{raw}</script><h1>Rockbound Pinot Noir</h1></html>",
+                           "https://x.dk/p", "r")
+    assert p.producer == "Rockbound" and p.price == 299.0

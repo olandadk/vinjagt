@@ -362,12 +362,13 @@ def cmd_debug(cfg, url: str):
     print(f"JSON-LD blokke: {len(blocks)}")
     for b in blocks[:6]:
         raw = (b.string or b.get_text() or "").strip()
-        try:
-            data = _json.loads(raw)
-            types = sorted({str(n.get('@type')) for n in generic._walk(data) if isinstance(n, dict) and n.get('@type')})
-            print(f"   typer: {', '.join(types)[:150]}")
-        except ValueError as e:
-            print(f"   ugyldig JSON ({e}): {raw[:120]!r}")
+        data, how = generic.parse_ld(raw)
+        if data is None:
+            print(f"   ugyldig JSON, kunne ikke repareres ({how}): {raw[:120]!r}")
+            continue
+        types = sorted({str(n.get('@type')) for n in generic._walk(data) if isinstance(n, dict) and n.get('@type')})
+        note = {"ok": "", "repareret": "  (fejl i shoppens JSON – repareret)", "delvist": "  (fejl i shoppens JSON – læst delvist)"}[how]
+        print(f"   typer: {', '.join(types)[:150]}{note}")
     for sel in ('meta[property="product:price:amount"]', '[itemprop="price"]', 'meta[property="og:price:amount"]'):
         el = soup.select_one(sel)
         if el:
