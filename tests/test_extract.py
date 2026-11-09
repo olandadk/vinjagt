@@ -232,3 +232,13 @@ def test_clearly_wine_for_supermarkets():
     assert X.clearly_wine("Gato Negro Cabernet Sauvignon", [])
     assert X.clearly_wine("Amarone della Valpolicella 2019", [])
     assert X.clearly_wine("Blå Nun", ["Vin"])
+
+
+def test_region_comparison_in_description_is_not_origin():
+    from vinjagt.models import Product, normalize
+    w = normalize(Product("r", "u", "Rockbound Pinot Noir - Top Pinot Noir", 299.0, categories=["Rødvin"],
+                          description="En Pinot Noir på niveau med en god Bourgogne. 94 point Wine Enthusiast."))
+    assert w.country is None and w.region is None and w.grape == "Pinot Noir"
+    w = normalize(Product("r", "u", "Rockbound Pinot Noir", 299.0, categories=["Rødvin"],
+                          description="Fra Oregon – minder om en god Bourgogne."))
+    assert w.country == "USA"

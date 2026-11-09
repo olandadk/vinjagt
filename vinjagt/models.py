@@ -93,7 +93,7 @@ def normalize(p: Product, fx: float = 1.0) -> Wine | None:
     if region and country_hint and region_country != country_hint:
         region, region_country = None, None
     if not country_hint:  # sidste udvej: landet fra beskrivelsen (aldrig Danmark – se nedenfor)
-        country_hint = X.detect_country(desc[:800], exclude=("Danmark",))
+        country_hint = X.detect_country_name(desc[:800], exclude=("Danmark",))
     if not region and country_hint:
         r2, c2 = X.detect_region(desc[:800], country=country_hint)
         if r2 and c2 == country_hint:

@@ -279,6 +279,23 @@ _GRAPES = {
              "txakoli", "assyrtiko", "solaris", "bourgogne blanc", "macon", "mâcon"],
 }
 
+# Kun egentlige landenavne – bruges på beskrivelser, hvor regionsnavne ofte er sammenligninger
+# ("på niveau med en god Bourgogne", "Bordeaux-blend")
+COUNTRY_NAMES = {
+    "Frankrig": ["frankrig", "france", "fransk", "franske"], "Italien": ["italien", "italy", "italia", "italiensk", "italienske"],
+    "Spanien": ["spanien", "spain", "espana", "españa", "spansk", "spanske"], "Portugal": ["portugal", "portugisisk", "portugisiske"],
+    "Tyskland": ["tyskland", "germany", "deutschland", "tysk", "tyske"], "Østrig": ["oestrig", "østrig", "austria", "østrigsk", "østrigske"],
+    "USA": ["usa", "californien", "california", "oregon", "washington state", "amerikansk", "amerikanske"],
+    "Chile": ["chile", "chilensk", "chilenske"], "Argentina": ["argentina", "argentinsk", "argentinske"],
+    "Australien": ["australien", "australia", "australsk", "australske"],
+    "New Zealand": ["new zealand", "newzealandsk", "newzealandske", "new zealandsk", "new zealandske"],
+    "Sydafrika": ["sydafrika", "south africa", "sydafrikansk", "sydafrikanske"], "Ungarn": ["ungarn", "hungary", "ungarsk"],
+    "Grækenland": ["graekenland", "grækenland", "greece", "græsk", "græske"], "Libanon": ["libanon", "lebanon"],
+    "Georgien": ["georgien"], "Slovenien": ["slovenien", "slovenia"], "Kroatien": ["kroatien", "croatia"],
+    "Uruguay": ["uruguay"], "Canada": ["canada", "canadisk"], "Israel": ["israel"], "England": ["england", "engelsk"],
+    "Schweiz": ["schweiz", "switzerland"], "Moldova": ["moldova"], "Rumænien": ["rumaenien", "rumænien", "romania"],
+}
+
 COUNTRIES = {
     "Frankrig": ["frankrig", "france", "francia", "bordeaux", "bourgogne", "burgundy", "champagne", "rhone", "rhône",
                  "loire", "alsace", "languedoc", "roussillon", "provence", "beaujolais", "chablis", "sancerre", "cahors",
@@ -346,6 +363,20 @@ def classify_type(name: str, categories: Iterable[str] = (), description: str = 
 
 
 PRODUCER_COUNTRY = {"concha y toro": "Chile", "bodega norton": "Argentina"}
+
+
+def detect_country_name(text: str, exclude: Iterable[str] = ()) -> str | None:
+    """Land ud fra egentlige landenavne alene (til beskrivelser)."""
+    if not text:
+        return None
+    t = " " + re.sub(r"[^a-z0-9]+", " ", fold(text)) + " "
+    for producer, country in PRODUCER_COUNTRY.items():
+        if f" {producer} " in t:
+            return country
+    for country, words in COUNTRY_NAMES.items():
+        if country not in exclude and has_word(text, words):
+            return country
+    return None
 
 
 def detect_country(*texts: str, exclude: Iterable[str] = ()) -> str | None:
