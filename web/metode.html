@@ -69,11 +69,18 @@ For “ved køb af 6” sammenlignes med de andre forhandleres 6-flaskepris.</p>
 </ul>
 <p>Anmelderpoint, som forhandleren selv skriver på produktsiden, markeres med <b>*</b> og tæller mindre –
 medmindre flere forhandlere oplyser det samme.</p>
+<p><b>Kalibrering:</b> anmeldere bruger skalaen forskelligt – nogle giver generelt flere point end andre.
+For hver kilde med mindst 10 vurderinger beregnes, hvor mange point den i gennemsnit giver over eller under,
+hvad vine til samme pris typisk får. Den forskel trækkes fra kildens point, så fx en Suckling- og en Parker-vurdering
+kan sammenlignes. Kilder med få vurderinger justeres mindre (forskellen ganges med n/(n+20)), så tilfældigheder
+ikke slår igennem. Den oprindelige karakter vises stadig; den justerede ses, når du holder over den.</p>
 <p>Se <a href="kilder.html">Kvalitetskilder</a> for en oversigt over de kilder, der aktuelt bruges, og hvor mange vine de vurderer.</p>
 
 <h2>Værdi for pengene</h2>
 <p>På tværs af alle vurderede vine beregnes, hvor mange point en vin typisk får til en given pris
-(point ≈ a + b·ln(pris)). “+3 p for prisen” betyder, at vinen scorer 3 point mere end vine til samme pris plejer.</p>
+(point ≈ a + b·ln(pris)). “+3 p for prisen” betyder, at vinen scorer 3 point mere end vine til samme pris plejer.
+Dessertvin (sød vin og hedvin) har sin egen kurve, fordi den prissættes anderledes – typisk dyrere pr. flaske for
+samme point – så den sammenlignes kun med anden dessertvin. Er der færre end 25 vurderede dessertvine, bruges den fælles kurve.</p>
 
 <h2>Samlet score (0–100)</h2>
 <p>45&nbsp;% rabat (40&nbsp;% rabat giver fuld score) · 35&nbsp;% værdi for pengene · 20&nbsp;% absolut kvalitet (80–95 point).

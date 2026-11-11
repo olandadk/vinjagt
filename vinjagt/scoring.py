@@ -9,7 +9,9 @@ En pris holdes op mod fire referencepriser – i prioriteret rækkefølge af tro
 
 Kvaliteten vurderes på en fælles 100-point skala fra anmeldere/medier (oplyst af forhandleren),
 Vivino-brugervurderinger og egne CSV-kilder. 'Værdi' er hvor mange point vinen giver i forhold til
-hvad vine til samme pris typisk scorer (log-lineær regression over alle vurderede vine).
+hvad vine til samme pris typisk scorer (log-lineær regression over alle vurderede vine; dessertvin har sin
+egen kurve). Anmeldernes point kalibreres først: hver kildes gennemsnitlige afvigelse fra kurven (trukket mod 0
+ved få vurderinger) trækkes fra, så kilder der generelt giver høje point ikke favoriseres.
 """
 from __future__ import annotations
 
@@ -30,9 +32,31 @@ def _clamp(x, lo=0.0, hi=1.0):
     return max(lo, min(hi, x))
 
 
-def _fit(points_prices: list[tuple[float, float]]):
+CAL_MIN_N, CAL_SHRINK = 10, 20       # kalibrering: mindst 10 vurderinger; trækkes mod 0 som n/(n+20)
+SEPARATE_CURVES, SEPARATE_MIN_N = ("dessert",), 25
+
+
+def _wavg(contrib) -> float | None:
+    den = sum(c[2] for c in contrib)
+    return round(sum(c[1] * c[2] for c in contrib) / den, 1) if den else None
+
+
+def _fits(stock, quality) -> dict:
+    """Fælles kurve ('*') plus egne kurver for SEPARATE_CURVES, når der er data nok. Øvrige vine indgår ikke i
+    den fælles kurve sammen med dem, der har egen kurve."""
+    rated = [(w, q[0]) for w in stock if (q := quality[w["id"]])[0] is not None]
+    fits = {}
+    for wtype in SEPARATE_CURVES:
+        f = _fit([(q, w["price_1"]) for w, q in rated if w.get("wine_type") == wtype], min_n=SEPARATE_MIN_N)
+        if f:
+            fits[wtype] = f
+    fits["*"] = _fit([(q, w["price_1"]) for w, q in rated if w.get("wine_type") not in fits])
+    return fits
+
+
+def _fit(points_prices: list[tuple[float, float]], min_n: int = 15):
     """points ≈ a + b·ln(pris). Returnerer (a, b) eller None."""
-    if len(points_prices) < 15:
+    if len(points_prices) < min_n:
         return None
     xs = [math.log(p) for _, p in points_prices]
     ys = [q for q, _ in points_prices]
@@ -59,6 +83,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
 
     # --------------------------------------------------- kvalitet pr. vin
     quality: dict[int, tuple[float | None, list[dict]]] = {}
+    contribs: dict[int, list] = {}
     sources: dict[tuple[str, bool], dict] = {}
     for w in stock:
         grp = members[groups.get(w["id"], w["id"])]
@@ -67,7 +92,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
         for m in grp:
             for c in json.loads(m.get("critic") or "[]"):
                 seen[(c["source"], c["score"], c["scale"])].add(m["retailer_id"])
-        items, num, den = [], 0.0, 0.0
+        items, contrib = [], []  # contrib: (kilde, point, vægt, item) – kalibreres efter løkken
         used: dict[tuple[str, bool], tuple[float, float]] = {}  # (kilde, oplyst af forhandler) -> (skala, point)
         best_per_src: dict[str, tuple] = {}  # samme anmelder flere gange (fx to årgange/forhandlere): brug højeste
         for (src, score, scale), shops in seen.items():
@@ -78,11 +103,11 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
             wgt = 0.9 if len(shops) >= 2 else 0.7
             if src in GENEROUS:  # anmeldere med kendt generøs skala (fx Luca Maroni) tæller mindre og loftes
                 pts, wgt = min(pts, GENEROUS[src]), wgt * 0.5
-            items.append({"s": src, "v": f"{score}/{scale}" if scale != 100 else f"{score} p", "pt": round(pts, 1),
-                          "own": True, "n": len(shops)})
+            it = {"s": src, "v": f"{score}/{scale}" if scale != 100 else f"{score} p", "pt": round(pts, 1),
+                  "own": True, "n": len(shops)}
+            items.append(it)
             used[(src, True)] = (scale, pts)
-            num += wgt * pts
-            den += wgt
+            contrib.append((src, pts, wgt, it))
         ext_price = None
         if ext:
             for r in ext.lookup(w["name"], w.get("producer"), w.get("vintage")):
@@ -91,22 +116,56 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
                 pts = to_points(r["rating"], r["scale"])
                 cnt = r.get("count") or 0
                 wgt = (0.5 + 0.5 * _clamp(cnt / 500)) if r["source"] == "Vivino" else 1.0
-                items.append({"s": r["source"], "v": f"{r['rating']:.1f}" if r["scale"] == 5 else f"{r['rating']:g}/{r['scale']:g}",
-                              "pt": round(pts, 1), "n": cnt or None, "u": r.get("url"), "m": r.get("match"),
-                              "yr": r.get("vintage") or None})
+                it = {"s": r["source"], "v": f"{r['rating']:.1f}" if r["scale"] == 5 else f"{r['rating']:g}/{r['scale']:g}",
+                      "pt": round(pts, 1), "n": cnt or None, "u": r.get("url"), "m": r.get("match"),
+                      "yr": r.get("vintage") or None}
+                items.append(it)
                 used[(r["source"], False)] = (r["scale"], pts)
-                num += wgt * pts
-                den += wgt
+                contrib.append((r["source"], pts, wgt, it))
                 if r.get("price") and r["source"] == "Vivino":
                     ext_price = r["price"]
-        quality[w["id"]] = (round(num / den, 1) if den else None, items, ext_price)
+        contribs[w["id"]] = contrib
+        quality[w["id"]] = (_wavg(contrib), items, ext_price)
         for key, (scale, pts) in used.items():  # til oversigten over kvalitetskilder
             u = sources.setdefault(key, {"vine": 0, "pt": 0.0, "scales": set()})
             u["vine"] += 1
             u["pt"] += pts
             u["scales"].add(scale)
 
-    fit = _fit([(q[0], w["price_1"]) for w in stock if (q := quality[w["id"]])[0] is not None])
+    # --------------------------------------------------- kalibrering af anmeldere
+    # Anmeldere bruger skalaen forskelligt (fx giver nogle generelt højere point end andre). For hver kilde
+    # beregnes, hvor meget dens point i gennemsnit ligger over/under det, vine til samme pris typisk får.
+    # Forskellen trækkes fra (trukket mod 0 for kilder med få vurderinger), så kilderne kan sammenlignes.
+    raw_fits = _fits(stock, quality)
+    calibration: dict[str, dict] = {}
+    if raw_fits["*"]:
+        resid: dict[str, list[float]] = defaultdict(list)
+        for w in stock:
+            a0, b0 = raw_fits.get(w.get("wine_type")) or raw_fits["*"]
+            for src, pts, _wgt, _it in contribs.get(w["id"], []):
+                resid[src].append(pts - (a0 + b0 * math.log(w["price_1"])))
+        for src, rs in resid.items():
+            if len(rs) >= CAL_MIN_N:
+                off = sum(rs) / len(rs) * len(rs) / (len(rs) + CAL_SHRINK)
+                calibration[src] = {"offset": round(off, 2), "n": len(rs)}
+        for w in stock:
+            c = contribs.get(w["id"])
+            if not c:
+                continue
+            adj = []
+            for src, pts, wgt, it in c:
+                off = calibration.get(src, {}).get("offset", 0.0)
+                if off:
+                    it["pt"] = round(pts - off, 1)
+                    it["k"] = round(-off, 1)  # vist som "justeret ±x p" på siden
+                adj.append((src, pts - off, wgt, it))
+            q, items, ext_price = quality[w["id"]]
+            quality[w["id"]] = (_wavg(adj), items, ext_price)
+
+    # --------------------------------------------------- forventede point for prisen
+    # Én fælles kurve – dessertvin (sød vin og hedvin) prissættes anderledes og får sin egen, når der er data nok.
+    fits = _fits(stock, quality)
+    fit = fits["*"]
 
     # --------------------------------------------------- pris og samlet score
     deals = []
@@ -169,6 +228,7 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
         value = None
         if q is not None and fit:
             a, b = fit
+            a, b = fits.get(w.get("wine_type")) or fit
             value = round(q - (a + b * math.log(p1)), 1)
 
         is_deal = best_disc >= min_discount or (value is not None and value >= min_value and q >= 88)
@@ -205,6 +265,8 @@ def evaluate(wines: list[dict], groups: dict[int, int], history: dict[int, dict]
     deals.sort(key=lambda d: -d["s"])
     stats["med_vurdering"] = sum(1 for d in deals if d["q"] is not None)
     stats["regression"] = {"a": round(fit[0], 2), "b": round(fit[1], 2)} if fit else None
+    stats["regression_typer"] = {t: {"a": round(f[0], 2), "b": round(f[1], 2)} for t, f in fits.items() if t != "*" and f}
+    stats["kalibrering"] = dict(sorted(calibration.items(), key=lambda kv: -kv[1]["n"]))
     stats["kilder"] = [{"s": s, "own": own, "vine": u["vine"], "pt": round(u["pt"] / u["vine"], 1),
                         "skala": sorted(u["scales"])} for (s, own), u in sources.items()]
     return deals, dict(stats)

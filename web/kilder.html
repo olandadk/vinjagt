@@ -21,7 +21,7 @@
     <thead><tr>
       <th data-k="s">Kilde</th><th data-k="kind" class="hide-m">Type</th><th data-k="how" class="hide-m">Hentes fra</th>
       <th data-k="conv" class="hide-m">Omregning</th><th data-k="w" class="hide-m">Vægt</th>
-      <th data-k="vine" class="num">Vine vurderet</th><th data-k="tilbud" class="num">Gode tilbud</th><th data-k="pt" class="num hide-m">Gns. point</th>
+      <th data-k="vine" class="num">Vine vurderet</th><th data-k="tilbud" class="num">Gode tilbud</th><th data-k="pt" class="num hide-m">Gns. point</th><th data-k="kal" class="num hide-m" title="Hvor meget kildens point justeres, så kilderne kan sammenlignes">Kalibrering</th>
     </tr></thead>
     <tbody id="rows"></tbody>
   </table>
@@ -63,7 +63,7 @@
       return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "da")) * dir || b.vine - a.vine;
     });
     document.getElementById("rows").innerHTML = (rows.length ? "" :
-      `<tr><td colspan="8" class="empty">Ingen vine har en kvalitetsvurdering endnu.</td></tr>`) + [...rows, ...vOff].map(s => `<tr${s.off ? ' class="off"' : ""}>
+      `<tr><td colspan="9" class="empty">Ingen vine har en kvalitetsvurdering endnu.</td></tr>`) + [...rows, ...vOff].map(s => `<tr${s.off ? ' class="off"' : ""}>
       <td><b>${V.esc(s.s)}</b>${s.own ? " *" : ""}${s.s === "Vivino" && !s.own ? vBadge : ""}<span class="only-m"><br><span class="err">${V.esc(s.kind)}</span></span></td>
       <td class="hide-m">${V.esc(s.kind)}</td>
       <td class="hide-m">${V.esc(s.how)}</td>
@@ -71,7 +71,8 @@
       <td class="hide-m">${V.esc(s.w)}</td>
       <td class="num">${s.off ? "–" : fmt(s.vine)}</td>
       <td class="num">${s.off ? "–" : fmt(s.tilbud)}</td>
-      <td class="num hide-m">${s.off ? "–" : s.pt.toLocaleString("da-DK", {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td></tr>`).join("");
+      <td class="num hide-m">${s.off ? "–" : s.pt.toLocaleString("da-DK", {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td>
+      <td class="num hide-m">${s.off || s.kal == null ? "–" : (s.kal > 0 ? "−" : "+") + Math.abs(s.kal).toLocaleString("da-DK", {minimumFractionDigits: 1, maximumFractionDigits: 1}) + " p"}</td></tr>`).join("");
   }
   document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
     dir = key === th.dataset.k ? -dir : (["vine", "tilbud", "pt"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();

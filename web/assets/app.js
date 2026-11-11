@@ -156,7 +156,8 @@
     const rt = d.rt.map(r => {
       const label = `${V.esc(r.s)} ${V.esc(r.v)}${r.n && !r.own ? ` <small>(${r.n.toLocaleString("da-DK")})</small>` : ""}`;
       const title = r.own ? `Oplyst af forhandleren${r.n > 1 ? ` (${r.n} forhandlere)` : ""}` : `Ekstern kilde${r.m ? `, match ${Math.round(r.m * 100)} %` : ""}${r.yr ? "" : ", alle årgange"}`;
-      return `<span class="tag" title="${title}">${r.u ? `<a href="${V.esc(r.u)}" target="_blank" rel="noopener">${label}</a>` : label}${r.own ? " *" : ""}</span>`;
+      const kal = r.k ? `, kalibreret ${r.k > 0 ? "+" : "−"}${Math.abs(r.k).toLocaleString("da-DK")} p → ${r.pt.toLocaleString("da-DK")} p` : "";
+      return `<span class="tag" title="${title}${kal}">${r.u ? `<a href="${V.esc(r.u)}" target="_blank" rel="noopener">${label}</a>` : label}${r.own ? " *" : ""}</span>`;
     }).join("");
     const fxTag = d.fx ? `<span class="tag warn" title="Udenlandsk webshop: pris omregnet til kroner, uden dansk vinafgift, moms-forskel og fragt">${V.esc(d.fx)}-shop · omregnet, uden dansk afgift</span>` : "";
     const lowest = d.lo && (d.h || []).filter(p => p != null).length >= 4 && d.p1 <= d.lo * 1.005;

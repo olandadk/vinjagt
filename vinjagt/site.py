@@ -64,7 +64,9 @@ def build(db, cfg: dict, retailers_cfg: list[dict]) -> dict:
     for d in deals:
         for r in {(r["s"], bool(r.get("own"))) for r in d["rt"]}:
             in_deals[r] = in_deals.get(r, 0) + 1
-    sources = sorted(({**k, "tilbud": in_deals.get((k["s"], k["own"]), 0)} for k in stats.pop("kilder", [])),
+    kal = stats.get("kalibrering") or {}
+    sources = sorted(({**k, "tilbud": in_deals.get((k["s"], k["own"]), 0),
+                       "kal": (kal.get(k["s"]) or {}).get("offset")} for k in stats.pop("kilder", [])),
                      key=lambda k: (-k["vine"], k["s"]))
     rcfg = cfg.get("ratings") or {}
     csv_dir = rcfg.get("csv_dir") or ""
