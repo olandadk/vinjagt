@@ -20,7 +20,18 @@ DISTINCT = set("""
 riserva reserva reserve gran grand grande cru crus superiore classico premier 1er crianza ripasso appassimento
 vieilles vignes brut extra nature zero dosage demi sec doux rose blanc rouge bianco rosso blanco tinto noir noirs
 blancs millesime vintage late harvest spatlese auslese kabinett trocken feinherb lbv tawny ruby colheita
+andenvin
 """.split())
+
+# Andenvine (second wines) bærer ofte slottets navn og bliver ellers til de samme ord som hovedvinen,
+# fx "Le C des Carmes Haut-Brion" ~ "Les Carmes Haut-Brion". De får et ekstra skjult ord 'andenvin'.
+_SECOND = re.compile(
+    r"\b(?:le|la|les)\s+[a-z]\s+(?:de|des|du|d)\b"            # Le C des Carmes, La B de ...
+    r"|\bsecond(?:e)?\s+(?:vin|wine)\b|\b2(?:nd|e|eme)\s+(?:vin|wine)\b|\bandenvin\b"
+    r"|\b(?:le|la)\s+petite?\s+(?!verdot|sirah|syrah|manseng|chablis|arvine)\w"
+    r"|\b(?:pagodes|carruades|clarence|clarte|fiefs|alter\s+ego|reserve\s+de\s+la\s+comtesse|pavillon\s+(?:rouge|blanc))\b"
+    r"|\b(?:petit|petite)\s+(?:cheval|mouton|lion|figeac|haut\s+lafitte)\b"
+    r"|\bchapelle\s+de\s+la\s+mission\b|\bdame\s+de\s+montrose\b|\bseigneurs\s+de\b|\bforts\s+de\s+latour\b")
 
 _YEAR = re.compile(r"\b(19|20)\d{2}\b")
 _VOL = re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:cl|ml|l|ltr|liter)\b")
@@ -28,10 +39,12 @@ _VOL = re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:cl|ml|l|ltr|liter)\b")
 
 def tokens(name: str, producer: str | None = None) -> frozenset[str]:
     t = fold(f"{producer or ''} {name or ''}")
+    second = bool(_SECOND.search(re.sub(r"[^a-z0-9]+", " ", t)))
     t = _VOL.sub(" ", t)
     t = _YEAR.sub(" ", t)
     t = re.sub(r"[^a-z0-9]+", " ", t)
-    return frozenset(w for w in t.split() if w not in STOP and not w.isdigit() and len(w) > 1)
+    tk = {w for w in t.split() if w not in STOP and not w.isdigit() and len(w) > 1}
+    return frozenset(tk | {"andenvin"} if second else tk)
 
 
 def wine_key(name: str, producer: str | None = None) -> str:
@@ -97,6 +110,11 @@ def is_generic(tk: frozenset[str]) -> bool:
     return len(tk) < 2 or all(t in _GENERIC for t in tk)
 
 
+def _price_ok(a, b, ratio: float = 3.0) -> bool:
+    """Samme vin/årgang/størrelse koster ikke over 3x så meget hos en anden forhandler – så er det to vine."""
+    return not (a and b) or max(a, b) / min(a, b) <= ratio
+
+
 def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
     """Returnerer {wine_id: group_id}. Samme vin (navn + årgang + størrelse) hos forskellige forhandlere."""
     uf = _UF()
@@ -123,6 +141,7 @@ def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
         df = Counter(t for _, tk in items for t in tk)
         index: dict[str, list[int]] = defaultdict(list)
         toks = dict(items)
+        price = {w["id"]: w.get("price_1") for w in wines}
         for wid, tk in items:
             need = max(1, math.ceil(ratio * len(tk) - 1e-9))
             prefix = sorted(tk, key=lambda t: (df[t], t))[:len(tk) - need + 1]
@@ -130,7 +149,7 @@ def group_wines(wines: list[dict], threshold: float = 0.82) -> dict[int, int]:
             for t in prefix:
                 cands.update(index[t])
             for c in cands:
-                if similar(tk, toks[c]) >= threshold:
+                if similar(tk, toks[c]) >= threshold and _price_ok(price.get(c), price.get(wid)):
                     uf.union(c, wid)
             for t in prefix:
                 index[t].append(wid)

@@ -41,3 +41,15 @@ def test_calibration_and_dessert_curve():
     # kalibreret point er vist på karakteren, den rå karakter bevares
     r = next(r for d in deals for r in d["rt"] if r["s"] == "Generøs")
     assert r.get("k") and r["v"].endswith(" p")
+
+
+def test_second_wine_not_grouped_with_grand_vin():
+    from vinjagt.matching import group_wines
+    w = [{"id": 1, "name": "Chateau Les Carmes Haut-Brion Le C des Carmes Haut-Brion 2021", "vintage": 2021, "price_1": 349},
+         {"id": 2, "name": "Château Les Carmes Haut-Brion 2021", "vintage": 2021, "price_1": 1299},
+         {"id": 3, "name": "Le C des Carmes Haut-Brion 2021", "vintage": 2021, "price_1": 399},
+         {"id": 4, "name": "Château Les Carmes Haut-Brion 2021", "vintage": 2021, "price_1": 1199},
+         {"id": 5, "name": "Barolo Cannubi Riserva 2019 Ceretto", "vintage": 2019, "price_1": 900},
+         {"id": 6, "name": "Ceretto Barolo Cannubi Riserva 2019", "vintage": 2019, "price_1": 249}]  # >3x: ikke samme
+    g = group_wines(w)
+    assert g[1] == g[3] and g[2] == g[4] and g[1] != g[2] and g[5] != g[6]
