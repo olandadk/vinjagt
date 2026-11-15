@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kvalitetskilder – Vinjagt</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍷</text></svg>">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1 id="title">Vinjagt<span id="subtitle"></span></h1>
+  <nav><a href="index.html">Tilbud</a><a href="forhandlere.html">Forhandlere</a><a href="kilder.html" class="on">Kvalitetskilder</a><a href="metode.html">Sådan vurderes</a></nav>
+</div></header>
+<main class="wrap">
+  <p class="meta">De vurderinger (ratings), der bruges til at give vinene kvalitetspoint. Alle omregnes til en fælles
+    100-point skala – se <a href="metode.html">Sådan vurderes</a>. <b>*</b> = oplyst af forhandleren i produktteksten.
+    Klik på en kolonne for at sortere.</p>
+  <div class="summary" id="sum"></div>
+  <table class="shops">
+    <thead><tr>
+      <th data-k="s">Kilde</th><th data-k="kind" class="hide-m">Type</th><th data-k="how" class="hide-m">Hentes fra</th>
+      <th data-k="conv" class="hide-m">Omregning</th><th data-k="w" class="hide-m">Vægt</th>
+      <th data-k="vine" class="num">Vine vurderet</th><th data-k="tilbud" class="num">Gode tilbud</th><th data-k="pt" class="num hide-m">Gns. point</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<footer>Egne kilder kan tilføjes som CSV-filer i mappen <code>ratings/</code> i repository'et.</footer>
+<script src="assets/common.js"></script>
+<script>
+(async () => {
+  await V.header();
+  const k = await V.json("data/kilder.json").catch(() => ({sources: []}));
+  const CONV = {100: "100 point bruges direkte", 20: "17/20 = 92 · 16/20 = 89", 6: "6 ★ = 95 · 5 = 90 · 4 = 85", 5: "4,0 = 90 · 3,5 = 85"};
+  const conv = s => s.skala.map(x => CONV[x] || `${x}-skala omregnes forholdsmæssigt`).join("; ");
+  const describe = s => s.own
+    ? {kind: s.skala.includes(6) ? "Dansk medie" : "Anmelder", how: "Forhandlerens produkttekst",
+       w: "0,7 (0,9 hvis flere forhandlere)"}
+    : s.s === "Vivino"
+      ? {kind: "Brugervurderinger", how: "Vivinos danske liste", w: `0,5–1,0 efter stemmer (min. ${k.min_vivino_ratings || 25})`}
+      : {kind: "Egen kilde", how: "CSV-fil i ratings/", w: "1,0"};
+  const rows0 = k.sources.map(s => ({...s, ...describe(s), conv: conv(s)}));
+  // Vivino vises altid – også når kilden er slået fra eller blokeret og derfor ikke har vurderet nogen vine
+  const vs = k.vivino_status || {status: k.vivino ? "ikke hentet endnu" : "slået fra"};
+  const vLabel = vs.status === "ok" ? (vs.saved ? "" : "ingen vurderinger") : vs.status;
+  const vTitle = [vs.detail, vs.time && `sidst forsøgt ${V.when(vs.time)}`].filter(Boolean).join(", ");
+  const vBadge = vLabel ? ` <span class="st ${vs.status === "slået fra" ? "other" : "fejl"}" title="${V.esc(vTitle)}">${V.esc(vLabel)}</span>` : "";
+  const vOff = !rows0.some(s => s.s === "Vivino" && !s.own)
+    ? [{s: "Vivino", own: false, off: true, ...describe({s: "Vivino", own: false}), conv: CONV[5]}] : [];
+  const fmt = n => n.toLocaleString("da-DK");
+  document.getElementById("sum").innerHTML = [
+    [new Set(rows0.map(s => s.s)).size, "kilder i brug"],
+    [fmt(rows0.filter(s => s.own).reduce((a, s) => a + s.vine, 0)), "vurderinger fra produkttekster"],
+    [fmt(rows0.filter(s => !s.own).reduce((a, s) => a + s.vine, 0)), "vurderinger fra eksterne kilder"],
+    [vLabel || "slået til", "Vivino"],
+    [k.csv_files || 0, "egne CSV-filer"],
+  ].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
+  let key = "vine", dir = -1;
+  function render() {
+    const rows = [...rows0].sort((a, b) => {
+      const x = a[key] ?? "", y = b[key] ?? "";
+      return (typeof x === "number" ? x - y : String(x).localeCompare(String(y), "da")) * dir || b.vine - a.vine;
+    });
+    document.getElementById("rows").innerHTML = (rows.length ? "" :
+      `<tr><td colspan="8" class="empty">Ingen vine har en kvalitetsvurdering endnu.</td></tr>`) + [...rows, ...vOff].map(s => `<tr${s.off ? ' class="off"' : ""}>
+      <td><b>${V.esc(s.s)}</b>${s.own ? " *" : ""}${s.s === "Vivino" && !s.own ? vBadge : ""}<span class="only-m"><br><span class="err">${V.esc(s.kind)}</span></span></td>
+      <td class="hide-m">${V.esc(s.kind)}</td>
+      <td class="hide-m">${V.esc(s.how)}</td>
+      <td class="hide-m">${V.esc(s.conv)}</td>
+      <td class="hide-m">${V.esc(s.w)}</td>
+      <td class="num">${s.off ? "–" : fmt(s.vine)}</td>
+      <td class="num">${s.off ? "–" : fmt(s.tilbud)}</td>
+      <td class="num hide-m">${s.off ? "–" : s.pt.toLocaleString("da-DK", {minimumFractionDigits: 1, maximumFractionDigits: 1})}</td></tr>`).join("");
+  }
+  document.querySelectorAll("th[data-k]").forEach(th => th.addEventListener("click", () => {
+    dir = key === th.dataset.k ? -dir : (["vine", "tilbud", "pt"].includes(th.dataset.k) ? -1 : 1); key = th.dataset.k; render();
+  }));
+  render();
+})();
+</script>
+</body>
+</html>

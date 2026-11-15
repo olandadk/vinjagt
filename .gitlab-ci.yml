@@ -1,0 +1,9 @@
+# Bruges kun af GitLab Pages – ignoreres af GitHub/Codeberg
+pages:
+  stage: deploy
+  script:
+    - mkdir -p public && find . -maxdepth 1 ! -name . ! -name public ! -name .git -exec cp -r {} public/ \;
+  artifacts:
+    paths: [public]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "pages"
